@@ -1,0 +1,49 @@
+\documentclass[10pt,letterpaper]{article}
+\usepackage[utf8]{utf8}
+\usepackage[margin=0.5in]{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{xcolor}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=blue,
+}
+
+\pagestyle{empty}
+\titleformat{\section}{\large\bfseries\uppercase}{}{0pt}{}[\titlerule]
+\titlespacing*{\section}{0pt}{10pt}{6pt}
+\setlist[itemize]{noitemsep, topsep=2pt, leftmargin=1.2em}
+
+\begin{document}
+
+% Header Section
+\begin{center}
+    {\Huge \bfseries {{FULL_NAME}}} \\[4pt]
+    \small {{CONTACT_LINE}}
+\end{center}
+
+\vspace{-6pt}
+
+% Education Section
+{{EDUCATION_SECTION}}
+
+% Experience Section
+{{EXPERIENCE_SECTION}}
+
+% Internships Section
+{{INTERNSHIPS_SECTION}}
+
+% Projects Section
+{{PROJECTS_SECTION}}
+
+% Skills Section
+{{SKILLS_SECTION}}
+
+% Certifications Section
+{{CERTIFICATIONS_SECTION}}
+
+\end{document}

@@ -130,16 +130,38 @@ npm run build
 
 ---
 
-## 🔐 Authentication API Overview
+## 📄 Phase 3: LaTeX Resume Engine
+
+The LaTeX Resume Engine transforms the candidate's Master Candidate Profile into a normalized `ResumeData` structure, escapes LaTeX special characters, renders the document template, and compiles it via `pdflatex`/`xelatex`.
+
+### Template & Rendering Boundaries
+- **Template Location**: `backend/app/resume/templates/base_resume.tex`
+- **Escaping Engine**: `backend/app/resume/escaping.py` (escapes `&`, `%`, `$`, `#`, `_`, `{`, `}`, `~`, `^`, `\`, and formats `\href` URLs)
+- **Data Transformer**: `backend/app/resume/transformer.py` (converts profile to `ResumeData` without mutating MongoDB profile)
+- **PDF Storage**: `backend/app/storage/pdf_storage.py` (stores binary PDFs in `storage_data/pdf/` and saves `storage://` references in MongoDB)
+
+### Server Compiler Requirements
+- Binary compilation requires local `pdflatex` or `xelatex` installed on the host system (e.g. TeX Live or MiKTeX).
+- If no system LaTeX compiler is found on the server environment, the API returns a structured `COMPILER_UNAVAILABLE` response with the saved `.tex` source without generating substitute PDFs.
+
+---
+
+## 🔐 API Overview
 
 | Method | Endpoint | Description | Auth Required |
 |---|---|---|---|
-| `POST` | `/api/v1/auth/signup` | Register new user & return access/refresh token pair | No |
+| `POST` | `/api/v1/auth/signup` | Register new user & return token pair | No |
 | `POST` | `/api/v1/auth/login` | Authenticate credentials & return token pair | No |
-| `POST` | `/api/v1/auth/refresh` | Rotate & refresh access/refresh token pair | No (Refresh Token Payload) |
-| `POST` | `/api/v1/auth/logout` | Revoke refresh token & invalidate server-side session | No (Refresh Token Payload/Header) |
-| `GET` | `/api/v1/auth/me` | Fetch authenticated user profile | Yes (Bearer Access Token) |
-| `GET` | `/api/v1/users/me` | Fetch user details | Yes (Bearer Access Token) |
+| `POST` | `/api/v1/auth/refresh` | Rotate & refresh token pair | No |
+| `POST` | `/api/v1/auth/logout` | Revoke refresh token & invalidate session | No |
+| `GET` | `/api/v1/auth/me` | Fetch authenticated user profile | Yes |
+| `GET` | `/api/v1/profile` | Fetch candidate master profile | Yes |
+| `POST` | `/api/v1/profile` | Upsert candidate master profile | Yes |
+| `PUT` | `/api/v1/profile` | Update candidate master profile | Yes |
+| `DELETE` | `/api/v1/profile` | Delete candidate master profile | Yes |
+| `POST` | `/api/v1/resume/generate` | Generate/regenerate base LaTeX resume | Yes |
+| `GET` | `/api/v1/resume/base` | Fetch base resume artifact metadata | Yes |
+| `GET` | `/api/v1/resume/base/pdf` | Serve compiled base resume PDF binary | Yes |
 
 ---
 

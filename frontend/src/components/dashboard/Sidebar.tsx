@@ -25,7 +25,7 @@ const navItems: NavItem[] = [
   { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { name: "Candidate Profile", href: "/dashboard/profile", icon: User },
   { name: "Resume Optimizer", href: "#", icon: Sparkles, phase2: true },
-  { name: "LaTeX Documents", href: "#", icon: FileCheck, phase2: true },
+  { name: "LaTeX Documents", href: "/dashboard/resume", icon: FileCheck },
   { name: "System Settings", href: "#", icon: Settings, phase2: true },
 ];
 

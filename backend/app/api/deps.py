@@ -5,10 +5,12 @@ from app.core.config import settings
 from app.core.database import get_database
 from app.core.security import decode_token
 from app.repositories.profile_repository import ProfileRepository
+from app.repositories.resume_repository import ResumeRepository
 from app.repositories.session_repository import SessionRepository
 from app.repositories.user_repository import UserRepository
 from app.services.auth_service import AuthService
 from app.services.profile_service import ProfileService
+from app.services.resume_service import ResumeService
 from app.services.user_service import UserService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
@@ -29,6 +31,11 @@ def get_profile_repository() -> ProfileRepository:
     return ProfileRepository(db["candidate_profiles"])
 
 
+def get_resume_repository() -> ResumeRepository:
+    db = get_database()
+    return ResumeRepository(db["resume_artifacts"])
+
+
 def get_user_service(
     user_repo: UserRepository = Depends(get_user_repository),
 ) -> UserService:
@@ -39,6 +46,13 @@ def get_profile_service(
     profile_repo: ProfileRepository = Depends(get_profile_repository),
 ) -> ProfileService:
     return ProfileService(profile_repo)
+
+
+def get_resume_service(
+    resume_repo: ResumeRepository = Depends(get_resume_repository),
+    profile_repo: ProfileRepository = Depends(get_profile_repository),
+) -> ResumeService:
+    return ResumeService(resume_repo, profile_repo)
 
 
 def get_auth_service(
