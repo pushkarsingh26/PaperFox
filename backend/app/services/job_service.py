@@ -48,6 +48,8 @@ class JobService:
             is_analyzed=doc.get("is_analyzed", False),
             optimization=doc.get("optimization"),
             is_optimized=doc.get("is_optimized", False),
+            job_resume_artifact=doc.get("job_resume_artifact"),
+            is_resume_generated=doc.get("is_resume_generated", False),
             created_at=doc["created_at"],
             updated_at=doc["updated_at"]
         )

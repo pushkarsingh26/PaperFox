@@ -1,0 +1,59 @@
+\documentclass[10pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[top={{MARGIN_TOP}}in,bottom={{MARGIN_BOTTOM}}in,left={{MARGIN_LEFT}}in,right={{MARGIN_RIGHT}}in]{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{xcolor}
+\usepackage{microtype}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=black,
+    pdftitle={Resume},
+    pdfauthor={PaperFox},
+}
+
+\pagestyle{empty}
+\titleformat{\section}{\normalsize\bfseries\uppercase}{}{0pt}{}[\titlerule]
+\titlespacing*{\section}{0pt}{{{SECTION_BEFORE_SPACING}}pt}{4pt}
+\setlist[itemize]{noitemsep, topsep=1pt, leftmargin=1.2em, itemsep=0pt, parsep=0pt}
+
+% Compact paragraph spacing
+\setlength{\parskip}{0pt}
+\setlength{\parindent}{0pt}
+
+\begin{document}
+
+% Header Section
+\begin{center}
+    {\Large \bfseries {{FULL_NAME}}} \\[3pt]
+    \small {{CONTACT_LINE}}
+\end{center}
+
+\vspace{-4pt}
+
+% Summary Section
+{{SUMMARY_SECTION}}
+
+% Education Section
+{{EDUCATION_SECTION}}
+
+% Experience Section
+{{EXPERIENCE_SECTION}}
+
+% Internships Section
+{{INTERNSHIPS_SECTION}}
+
+% Projects Section
+{{PROJECTS_SECTION}}
+
+% Skills Section
+{{SKILLS_SECTION}}
+
+% Certifications Section
+{{CERTIFICATIONS_SECTION}}
+
+\end{document}

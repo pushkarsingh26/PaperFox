@@ -50,3 +50,30 @@ class JobRepository(BaseRepository):
     async def delete_job(self, job_id: str, user_id: str) -> bool:
         result = await self.collection.delete_one({"_id": job_id, "user_id": user_id})
         return result.deleted_count > 0
+
+    async def upsert_job_resume_artifact(
+        self, job_id: str, user_id: str, artifact_dict: dict
+    ) -> dict | None:
+        """
+        Persist (or overwrite) the Phase 6 job_resume_artifact subdocument
+        inside the job_applications document. Always overwrites the previous artifact.
+        """
+        update_data = {
+            "job_resume_artifact": artifact_dict,
+            "is_resume_generated": artifact_dict.get("status") in ("success", "overflow", "compiler_unavailable"),
+            "updated_at": datetime.now(timezone.utc),
+        }
+        result = await self.collection.update_one(
+            {"_id": job_id, "user_id": user_id},
+            {"$set": update_data},
+        )
+        if result.matched_count > 0:
+            return await self.get_by_id(job_id, user_id)
+        return None
+
+    async def get_job_resume_artifact(self, job_id: str, user_id: str) -> dict | None:
+        """Retrieve the stored Phase 6 job_resume_artifact for a job application."""
+        doc = await self.get_by_id(job_id, user_id)
+        if doc and doc.get("job_resume_artifact"):
+            return doc["job_resume_artifact"]
+        return None

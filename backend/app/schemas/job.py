@@ -53,6 +53,41 @@ class JobApplicationUpdate(BaseModel):
     location: Optional[str] = Field(default=None)
 
 
+class ATSValidation(BaseModel):
+    """ATS readability and structure validation results."""
+    is_single_page: bool = False
+    page_count: int = 0
+    text_extractable: bool = True
+    has_summary: bool = False
+    has_skills: bool = False
+    has_education: bool = False
+    has_experience_or_projects: bool = False
+
+
+class JobResumeArtifact(BaseModel):
+    """
+    Phase 6 artifact: a job-specific compiled resume.
+    Stored as a subdocument inside the job_applications MongoDB document.
+    """
+    latex_source: str = Field(..., description="Complete LaTeX source string")
+    pdf_storage_reference: Optional[str] = Field(
+        default=None,
+        description="storage:// URI pointing to the compiled PDF binary"
+    )
+    page_count: int = Field(default=0, description="Number of pages in the compiled PDF")
+    compression_level_used: int = Field(
+        default=0,
+        description="Compression level applied (0 = no compression, 5 = max)"
+    )
+    status: str = Field(
+        default="pending",
+        description="One of: success | overflow | compiler_unavailable | error"
+    )
+    ats_validation: ATSValidation = Field(default_factory=ATSValidation)
+    error_message: Optional[str] = None
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class JobApplicationResponse(BaseModel):
     id: str = Field(..., description="Unique job application ID")
     user_id: str = Field(..., description="Owner user ID")
@@ -67,6 +102,8 @@ class JobApplicationResponse(BaseModel):
     is_analyzed: bool = False
     optimization: Optional[Dict[str, Any]] = None
     is_optimized: bool = False
+    job_resume_artifact: Optional[Dict[str, Any]] = None
+    is_resume_generated: bool = False
     created_at: datetime
     updated_at: datetime
 

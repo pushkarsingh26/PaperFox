@@ -16,6 +16,7 @@ import {
   CreateJobInput,
 } from "@/lib/jobs";
 import { OptimizationReview } from "@/components/jobs/OptimizationReview";
+import JobResumePanel from "@/components/jobs/JobResumePanel";
 import {
   Briefcase,
   Plus,
@@ -446,18 +447,30 @@ export default function JobsPage() {
                     {/* Tab 2: Optimization Review View */}
                     {activeViewTab === "optimization" && selectedJob.is_analyzed ? (
                       selectedJob.optimization ? (
-                        <OptimizationReview
-                          companyName={selectedJob.company_name}
-                          roleTitle={selectedJob.role_title}
-                          data={selectedJob.optimization}
-                        />
+                        <div className="space-y-2">
+                          <OptimizationReview
+                            companyName={selectedJob.company_name}
+                            roleTitle={selectedJob.role_title}
+                            data={selectedJob.optimization}
+                          />
+                          {/* Phase 6: Job-Specific Resume Generation */}
+                          <JobResumePanel
+                            job={selectedJob}
+                            onRenderComplete={(updatedJob) => {
+                              setJobs((prev) =>
+                                prev.map((j) => (j.id === updatedJob.id ? updatedJob : j))
+                              );
+                              setSelectedJob(updatedJob);
+                            }}
+                          />
+                        </div>
                       ) : (
                         <div className="p-8 rounded-2xl bg-slate-950/60 border border-dashed border-slate-800 text-center space-y-4">
                           <Sparkles className="w-10 h-10 text-indigo-400 mx-auto" />
                           <div>
                             <h3 className="text-sm font-semibold text-white">No Resume Optimization Generated Yet</h3>
                             <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                              Click "Optimize Resume" above to run PaperFox's multi-task AI pipeline and transform your candidate profile into a job-specific resume snapshot.
+                              Click "Optimize Resume" above to run PaperFox&apos;s multi-task AI pipeline and transform your candidate profile into a job-specific resume snapshot.
                             </p>
                           </div>
                           <Button
