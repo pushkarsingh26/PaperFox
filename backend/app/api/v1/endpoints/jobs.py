@@ -9,6 +9,8 @@ from app.schemas.job import (
 )
 from app.services.job_service import JobService
 
+from app.schemas.optimization_schema import OptimizationResponse
+
 router = APIRouter(prefix="/jobs", tags=["Job Applications"])
 
 
@@ -57,6 +59,31 @@ async def analyze_job_description(
     """
     user_id = current_user["id"]
     return await job_service.analyze_job(user_id, job_id)
+
+
+@router.post("/{job_id}/optimize", response_model=OptimizationResponse)
+async def optimize_resume_for_job(
+    job_id: str,
+    current_user: dict = Depends(get_current_user),
+    job_service: JobService = Depends(get_job_service),
+):
+    """
+    Execute Phase 5 job-specific resume optimization pipeline.
+    Transforms master candidate profile into an independent OptimizedResumeData snapshot.
+    """
+    user_id = current_user["id"]
+    return await job_service.optimize_job(user_id, job_id)
+
+
+@router.get("/{job_id}/optimization", response_model=OptimizationResponse)
+async def get_job_optimization(
+    job_id: str,
+    current_user: dict = Depends(get_current_user),
+    job_service: JobService = Depends(get_job_service),
+):
+    """Retrieve the stored job-specific resume optimization snapshot for a job application."""
+    user_id = current_user["id"]
+    return await job_service.get_job_optimization(user_id, job_id)
 
 
 @router.delete("/{job_id}", response_model=MessageResponse)

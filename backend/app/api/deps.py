@@ -64,8 +64,9 @@ def get_job_repository() -> JobRepository:
 
 def get_job_service(
     job_repo: JobRepository = Depends(get_job_repository),
+    profile_repo: ProfileRepository = Depends(get_profile_repository),
 ) -> JobService:
-    return JobService(job_repo)
+    return JobService(job_repo, profile_repo)
 
 
 def get_auth_service(

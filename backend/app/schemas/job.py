@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 
@@ -65,6 +65,8 @@ class JobApplicationResponse(BaseModel):
     analysis_provider: Optional[str] = None
     analysis_model: Optional[str] = None
     is_analyzed: bool = False
+    optimization: Optional[Dict[str, Any]] = None
+    is_optimized: bool = False
     created_at: datetime
     updated_at: datetime
 

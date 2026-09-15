@@ -10,10 +10,12 @@ import {
   listJobsApi,
   createJobApi,
   analyzeJobApi,
+  optimizeJobApi,
   deleteJobApi,
   JobApplication,
   CreateJobInput,
 } from "@/lib/jobs";
+import { OptimizationReview } from "@/components/jobs/OptimizationReview";
 import {
   Briefcase,
   Plus,
@@ -53,6 +55,9 @@ export default function JobsPage() {
   // Analysis / Selected State
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<{ id: string; msg: string } | null>(null);
+  const [optimizingId, setOptimizingId] = useState<string | null>(null);
+  const [optimizationError, setOptimizationError] = useState<{ id: string; msg: string } | null>(null);
+  const [activeViewTab, setActiveViewTab] = useState<"intelligence" | "optimization">("intelligence");
   const [selectedJob, setSelectedJob] = useState<JobApplication | null>(null);
 
   const fetchJobs = async () => {
@@ -116,6 +121,36 @@ export default function JobsPage() {
       });
     } finally {
       setAnalyzingId(null);
+    }
+  };
+
+  const handleOptimize = async (jobId: string) => {
+    setOptimizingId(jobId);
+    setOptimizationError(null);
+    try {
+      const optRes = await optimizeJobApi(jobId);
+      setJobs((prev) =>
+        prev.map((j) =>
+          j.id === jobId
+            ? { ...j, optimization: optRes.optimized_resume_data, is_optimized: true }
+            : j
+        )
+      );
+      if (selectedJob?.id === jobId && optRes.optimized_resume_data) {
+        setSelectedJob({
+          ...selectedJob,
+          optimization: optRes.optimized_resume_data,
+          is_optimized: true,
+        });
+      }
+      setActiveViewTab("optimization");
+    } catch (err: any) {
+      setOptimizationError({
+        id: jobId,
+        msg: err?.response?.data?.detail || "AI Resume Optimization failed across free fallback providers.",
+      });
+    } finally {
+      setOptimizingId(null);
     }
   };
 
@@ -321,18 +356,30 @@ export default function JobsPage() {
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        {selectedJob.is_analyzed ? (
-                          <div className="flex flex-col items-end">
-                            <Badge variant="success" className="flex items-center gap-1">
-                              <Cpu className="w-3 h-3" />
-                              Provider: {selectedJob.analysis_provider}
-                            </Badge>
-                            <span className="text-[10px] text-slate-500 mt-1 font-mono">
-                              Model: {selectedJob.analysis_model}
-                            </span>
-                          </div>
-                        ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {selectedJob.is_analyzed && (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            disabled={optimizingId === selectedJob.id}
+                            onClick={() => handleOptimize(selectedJob.id)}
+                            className="bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-slate-950 font-semibold shadow-md"
+                          >
+                            {optimizingId === selectedJob.id ? (
+                              <>
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                                Optimizing...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                                {selectedJob.optimization ? "Re-Optimize Resume" : "Optimize Resume"}
+                              </>
+                            )}
+                          </Button>
+                        )}
+
+                        {!selectedJob.is_analyzed && (
                           <Button
                             variant="primary"
                             size="sm"
@@ -356,8 +403,75 @@ export default function JobsPage() {
                       </div>
                     </div>
 
-                    {/* Requirements Display */}
-                    {selectedJob.requirements ? (
+                    {/* Optimization Error Banner */}
+                    {optimizationError?.id === selectedJob.id && (
+                      <div className="p-3 rounded-xl bg-red-950/60 border border-red-800 text-xs text-red-300 flex items-center justify-between">
+                        <span>{optimizationError.msg}</span>
+                        <Button size="sm" variant="outline" onClick={() => handleOptimize(selectedJob.id)}>Retry</Button>
+                      </div>
+                    )}
+
+                    {/* View Switcher Tabs (when Analyzed or Optimized) */}
+                    {selectedJob.is_analyzed && (
+                      <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+                        <button
+                          type="button"
+                          onClick={() => setActiveViewTab("intelligence")}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            activeViewTab === "intelligence"
+                              ? "bg-slate-800 text-amber-300 border border-amber-500/30"
+                              : "text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          JD Intelligence
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveViewTab("optimization")}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                            activeViewTab === "optimization"
+                              ? "bg-indigo-950/60 text-indigo-300 border border-indigo-500/40"
+                              : "text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          <Sparkles className="w-3 h-3 text-indigo-400" />
+                          Optimized Resume Snapshot
+                          {selectedJob.optimization && (
+                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Tab 2: Optimization Review View */}
+                    {activeViewTab === "optimization" && selectedJob.is_analyzed ? (
+                      selectedJob.optimization ? (
+                        <OptimizationReview
+                          companyName={selectedJob.company_name}
+                          roleTitle={selectedJob.role_title}
+                          data={selectedJob.optimization}
+                        />
+                      ) : (
+                        <div className="p-8 rounded-2xl bg-slate-950/60 border border-dashed border-slate-800 text-center space-y-4">
+                          <Sparkles className="w-10 h-10 text-indigo-400 mx-auto" />
+                          <div>
+                            <h3 className="text-sm font-semibold text-white">No Resume Optimization Generated Yet</h3>
+                            <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                              Click "Optimize Resume" above to run PaperFox's multi-task AI pipeline and transform your candidate profile into a job-specific resume snapshot.
+                            </p>
+                          </div>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            disabled={optimizingId === selectedJob.id}
+                            onClick={() => handleOptimize(selectedJob.id)}
+                            className="bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-slate-950 font-semibold"
+                          >
+                            <Sparkles className="w-4 h-4 mr-2" /> Optimize Resume Now
+                          </Button>
+                        </div>
+                      )
+                    ) : selectedJob.requirements ? (
                       <div className="space-y-6">
                         {/* Meta Requirements Row */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
