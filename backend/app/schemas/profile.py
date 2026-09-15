@@ -232,6 +232,12 @@ class SkillSchema(BaseModel):
             raise ValueError("Skill name cannot be empty")
         return v.strip()
 
+    @field_validator("category")
+    def category_not_empty(cls, v):
+        if not v or not v.strip():
+            return "Other"
+        return v.strip()
+
 
 class CertificationSchema(BaseModel):
     id: Optional[str] = None

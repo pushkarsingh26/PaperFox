@@ -369,3 +369,30 @@ async def test_17_persistence_after_update(async_client: AsyncClient, mock_mongo
     fetch_res = await async_client.get("/api/v1/profile", headers=headers)
     assert fetch_res.status_code == 200
     assert fetch_res.json()["personal_details"]["full_name"] == "Persisted Updated Name"
+
+
+@pytest.mark.asyncio
+async def test_18_custom_category_skills(async_client: AsyncClient, mock_mongo_db):
+    headers = await get_auth_headers(async_client, "customcat@example.com")
+    payload = {
+        "personal_details": {"full_name": "DevOps Engineer"},
+        "candidate_type": "experienced",
+        "skills": [
+            {"name": "AWS", "category": "Cloud & DevOps"},
+            {"name": "Kubernetes", "category": "Cloud & DevOps"},
+            {"name": "FastAPI", "category": "Frameworks"},
+        ],
+    }
+    res = await async_client.post("/api/v1/profile", json=payload, headers=headers)
+    assert res.status_code == 201
+    saved_skills = res.json()["skills"]
+    assert len(saved_skills) == 3
+    aws_skill = next(s for s in saved_skills if s["name"] == "AWS")
+    assert aws_skill["category"] == "Cloud & DevOps"
+
+    # Fetch to ensure persistence
+    get_res = await async_client.get("/api/v1/profile", headers=headers)
+    assert get_res.status_code == 200
+    fetched_skills = get_res.json()["skills"]
+    assert any(s["name"] == "AWS" and s["category"] == "Cloud & DevOps" for s in fetched_skills)
+
