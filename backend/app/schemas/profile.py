@@ -90,7 +90,7 @@ class EvidenceSchema(BaseModel):
 class ProjectSchema(BaseModel):
     id: Optional[str] = None
     name: str
-    description: str
+    description: Optional[str] = ""
     technologies: List[str] = Field(default_factory=list)
     features: List[str] = Field(default_factory=list)
     responsibilities: List[str] = Field(default_factory=list)
@@ -100,7 +100,18 @@ class ProjectSchema(BaseModel):
     repository_url: Optional[HttpUrl] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+    description_source: str = Field(default="self", description="'self' or 'ai'")
+    ai_analysis_text: Optional[str] = Field(default=None, description="Raw plain-text analysis response pasted by candidate")
     evidence: Optional[EvidenceSchema] = None
+
+    @field_validator("description_source", mode="before")
+    def validate_description_source(cls, v):
+        if not v or not isinstance(v, str):
+            return "self"
+        v_clean = v.strip().lower()
+        if v_clean not in ("self", "ai"):
+            raise ValueError("description_source must be 'self' or 'ai'")
+        return v_clean
 
     @field_validator("project_url", "github_url", "repository_url", mode="before")
     def empty_string_to_none(cls, v):

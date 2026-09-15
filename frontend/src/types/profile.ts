@@ -68,7 +68,7 @@ export interface ProjectEvidence {
 export interface Project {
   id?: string;
   name: string;
-  description: string;
+  description?: string;
   technologies?: string[];
   features?: string[];
   responsibilities?: string[];
@@ -78,6 +78,8 @@ export interface Project {
   repository_url?: string;
   start_date?: string;
   end_date?: string;
+  description_source?: "self" | "ai";
+  ai_analysis_text?: string;
   evidence?: ProjectEvidence;
 }
 
