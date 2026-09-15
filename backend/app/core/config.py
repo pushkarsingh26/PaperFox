@@ -25,6 +25,26 @@ class Settings(BaseSettings):
     
     ALLOWED_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
+    # AI Providers Configuration
+    GOOGLE_API_KEY: str = ""
+    GOOGLE_MODEL: str = "gemini-2.5-flash"
+
+    NVIDIA_API_KEY: str = ""
+    NVIDIA_MODEL: str = "meta/llama-3.1-70b-instruct"
+
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_MODEL: str = "nvidia/nemotron-3.5-lightning:free"
+    OPENROUTER_FALLBACK_MODEL: str = "liquid/lfm-2.5-2.6b:free"
+
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "openai/gpt-oss-20b"
+
+    AI_TIMEOUT_SECONDS: int = 30
+    AI_MAX_RETRIES: int = 2
+
+    JD_ANALYSIS_PRIMARY_PROVIDER: str = "gemini"
+    JD_ANALYSIS_FALLBACK_PROVIDERS: Union[List[str], str] = ["groq", "openrouter"]
+
     @field_validator("ALLOWED_ORIGINS", mode="before")
     def parse_allowed_origins(cls, v: Union[str, List[str]]) -> List[str]:
         if isinstance(v, str):
@@ -34,6 +54,17 @@ class Settings(BaseSettings):
                 except Exception:
                     pass
             return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
+
+    @field_validator("JD_ANALYSIS_FALLBACK_PROVIDERS", mode="before")
+    def parse_fallback_providers(cls, v: Union[str, List[str]]) -> List[str]:
+        if isinstance(v, str):
+            if v.startswith("[") and v.endswith("]"):
+                try:
+                    return json.loads(v)
+                except Exception:
+                    pass
+            return [provider.strip().lower() for provider in v.split(",") if provider.strip()]
         return v
 
 

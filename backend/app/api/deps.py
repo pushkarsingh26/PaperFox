@@ -8,10 +8,12 @@ from app.repositories.profile_repository import ProfileRepository
 from app.repositories.resume_repository import ResumeRepository
 from app.repositories.session_repository import SessionRepository
 from app.repositories.user_repository import UserRepository
+from app.repositories.job_repository import JobRepository
 from app.services.auth_service import AuthService
 from app.services.profile_service import ProfileService
 from app.services.resume_service import ResumeService
 from app.services.user_service import UserService
+from app.services.job_service import JobService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
@@ -53,6 +55,17 @@ def get_resume_service(
     profile_repo: ProfileRepository = Depends(get_profile_repository),
 ) -> ResumeService:
     return ResumeService(resume_repo, profile_repo)
+
+
+def get_job_repository() -> JobRepository:
+    db = get_database()
+    return JobRepository(db["job_applications"])
+
+
+def get_job_service(
+    job_repo: JobRepository = Depends(get_job_repository),
+) -> JobService:
+    return JobService(job_repo)
 
 
 def get_auth_service(

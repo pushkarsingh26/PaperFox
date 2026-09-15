@@ -34,6 +34,8 @@ async def mock_mongo_db():
     # Cleanup collections after each test
     await db["users"].delete_many({})
     await db["sessions"].delete_many({})
+    await db["candidate_profiles"].delete_many({})
+    await db["job_applications"].delete_many({})
 
 
 @pytest_asyncio.fixture

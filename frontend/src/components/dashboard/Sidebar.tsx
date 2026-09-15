@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   User,
+  Briefcase,
   Sparkles,
   FileCheck,
   Settings,
@@ -24,8 +25,9 @@ interface NavItem {
 const navItems: NavItem[] = [
   { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { name: "Candidate Profile", href: "/dashboard/profile", icon: User },
-  { name: "Resume Optimizer", href: "#", icon: Sparkles, phase2: true },
+  { name: "Job Workspace", href: "/dashboard/jobs", icon: Briefcase },
   { name: "LaTeX Documents", href: "/dashboard/resume", icon: FileCheck },
+  { name: "Resume Optimizer", href: "#", icon: Sparkles, phase2: true },
   { name: "System Settings", href: "#", icon: Settings, phase2: true },
 ];
 
@@ -49,7 +51,7 @@ export const Sidebar: React.FC = () => {
                   <div
                     key={item.name}
                     className="flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium text-slate-500 cursor-not-allowed hover:bg-slate-900/40 opacity-70"
-                    title="Phase 2 Feature"
+                    title="Future Phase Feature"
                   >
                     <div className="flex items-center space-x-3">
                       <Icon className="w-4 h-4 text-slate-600" />
@@ -87,11 +89,11 @@ export const Sidebar: React.FC = () => {
 
       <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3.5 space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-300">Phase 1 Target</span>
+          <span className="text-xs font-semibold text-slate-300">Phase 4 Target</span>
           <Badge variant="success">Active</Badge>
         </div>
         <p className="text-xs text-slate-400 leading-relaxed">
-          Foundation & Auth active. Service layers & API readiness complete.
+          Job Workspace & Multi-Provider AI JD Intelligence active.
         </p>
       </div>
     </aside>

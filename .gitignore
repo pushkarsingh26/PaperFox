@@ -31,3 +31,5 @@ storage_data/
 *.swo
 .DS_Store
 Thumbs.db
+scratch/
+backend/scratch/
