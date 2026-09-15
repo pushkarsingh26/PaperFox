@@ -229,22 +229,64 @@ def render_job_latex_resume(render_data: Dict[str, Any]) -> str:
     margin_right = str(render_data.get("margin_right", 0.50))
     section_spacing = str(render_data.get("section_before_spacing", 7))
 
-    rendered = (
-        template
-        .replace("{{FULL_NAME}}", full_name)
-        .replace("{{CONTACT_LINE}}", contact_line)
-        .replace("{{SUMMARY_SECTION}}", summary_sec)
-        .replace("{{EDUCATION_SECTION}}", edu_sec)
-        .replace("{{EXPERIENCE_SECTION}}", exp_sec)
-        .replace("{{INTERNSHIPS_SECTION}}", int_sec)
-        .replace("{{PROJECTS_SECTION}}", proj_sec)
-        .replace("{{SKILLS_SECTION}}", skills_sec)
-        .replace("{{CERTIFICATIONS_SECTION}}", certs_sec)
-        .replace("{{MARGIN_TOP}}", margin_top)
-        .replace("{{MARGIN_BOTTOM}}", margin_bottom)
-        .replace("{{MARGIN_LEFT}}", margin_left)
-        .replace("{{MARGIN_RIGHT}}", margin_right)
-        .replace("{{SECTION_BEFORE_SPACING}}", section_spacing)
-    )
+    section_map = {
+        "summary": summary_sec,
+        "education": edu_sec,
+        "experience": exp_sec or int_sec,
+        "internships": int_sec,
+        "projects": proj_sec,
+        "skills": skills_sec,
+        "certifications": certs_sec,
+    }
+    if exp_sec and int_sec:
+        section_map["experience"] = f"{exp_sec}\n\n{int_sec}"
+
+    default_job_order = ["summary", "education", "experience", "projects", "skills", "certifications"]
+    section_order = render_data.get("section_order") or default_job_order
+    order = [s for s in section_order if s in section_map]
+    for def_sec in default_job_order:
+        if def_sec not in order:
+            order.append(def_sec)
+
+    ordered_body = []
+    seen = set()
+    for s in order:
+        if s not in seen:
+            seen.add(s)
+            c = section_map.get(s, "").strip()
+            if c:
+                ordered_body.append(c)
+    body_sections_str = "\n\n".join(ordered_body)
+
+    if "{{BODY_SECTIONS}}" in template:
+        rendered = (
+            template
+            .replace("{{FULL_NAME}}", full_name)
+            .replace("{{CONTACT_LINE}}", contact_line)
+            .replace("{{BODY_SECTIONS}}", body_sections_str)
+            .replace("{{MARGIN_TOP}}", margin_top)
+            .replace("{{MARGIN_BOTTOM}}", margin_bottom)
+            .replace("{{MARGIN_LEFT}}", margin_left)
+            .replace("{{MARGIN_RIGHT}}", margin_right)
+            .replace("{{SECTION_BEFORE_SPACING}}", section_spacing)
+        )
+    else:
+        rendered = (
+            template
+            .replace("{{FULL_NAME}}", full_name)
+            .replace("{{CONTACT_LINE}}", contact_line)
+            .replace("{{SUMMARY_SECTION}}", summary_sec)
+            .replace("{{EDUCATION_SECTION}}", edu_sec)
+            .replace("{{EXPERIENCE_SECTION}}", exp_sec)
+            .replace("{{INTERNSHIPS_SECTION}}", int_sec)
+            .replace("{{PROJECTS_SECTION}}", proj_sec)
+            .replace("{{SKILLS_SECTION}}", skills_sec)
+            .replace("{{CERTIFICATIONS_SECTION}}", certs_sec)
+            .replace("{{MARGIN_TOP}}", margin_top)
+            .replace("{{MARGIN_BOTTOM}}", margin_bottom)
+            .replace("{{MARGIN_LEFT}}", margin_left)
+            .replace("{{MARGIN_RIGHT}}", margin_right)
+            .replace("{{SECTION_BEFORE_SPACING}}", section_spacing)
+        )
 
     return rendered

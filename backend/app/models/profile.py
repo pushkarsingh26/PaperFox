@@ -16,6 +16,7 @@ class CandidateProfileInDB:
         projects: Optional[List[Dict[str, Any]]] = None,
         skills: Optional[List[Dict[str, Any]]] = None,
         certifications: Optional[List[Dict[str, Any]]] = None,
+        section_order: Optional[List[str]] = None,
         completion_percentage: int = 0,
         created_at: Optional[datetime] = None,
         updated_at: Optional[datetime] = None,
@@ -32,6 +33,7 @@ class CandidateProfileInDB:
         self.projects = projects or []
         self.skills = skills or []
         self.certifications = certifications or []
+        self.section_order = section_order
         self.completion_percentage = completion_percentage
         self.created_at = created_at or datetime.now(timezone.utc)
         self.updated_at = updated_at or datetime.now(timezone.utc)
@@ -48,6 +50,7 @@ class CandidateProfileInDB:
             "projects": self.projects,
             "skills": self.skills,
             "certifications": self.certifications,
+            "section_order": self.section_order,
             "completion_percentage": self.completion_percentage,
             "created_at": self.created_at,
             "updated_at": self.updated_at,

@@ -1,4 +1,5 @@
 from typing import Any, Dict
+from app.schemas.profile import DEFAULT_SECTION_ORDER
 
 
 def transform_profile_to_resume_data(
@@ -29,6 +30,7 @@ def transform_profile_to_resume_data(
         "projects": profile_dict.get("projects", []),
         "skills": profile_dict.get("skills", []),
         "certifications": profile_dict.get("certifications", []),
+        "section_order": profile_dict.get("section_order") or DEFAULT_SECTION_ORDER,
     }
 
     return resume_data

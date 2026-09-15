@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { CandidateProfile } from "@/types/profile";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -14,6 +15,8 @@ import {
   FolderGit2,
   Code2,
   Award,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
 
 interface ReviewStepProps {
@@ -59,16 +62,26 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
       </div>
 
       {isComplete && (
-        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between">
-          <div className="flex items-center space-x-3 text-xs text-emerald-400">
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
+        <div className="p-5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-emerald-950/20">
+          <div className="flex items-start sm:items-center space-x-3 text-xs text-emerald-400">
+            <CheckCircle2 className="w-6 h-6 shrink-0 text-emerald-400 mt-0.5 sm:mt-0" />
             <div>
-              <p className="font-semibold text-sm">Master Candidate Profile Complete!</p>
-              <p className="text-xs text-emerald-300/80">
-                Your background information is stored in MongoDB Atlas and ready for Phase 3 resume generation.
+              <p className="font-bold text-sm text-emerald-300">Master Candidate Profile Complete!</p>
+              <p className="text-xs text-emerald-200/80 mt-0.5">
+                Your profile is saved and your 1-page Base Resume is ready to view, order, and compile.
               </p>
             </div>
           </div>
+          <Link href="/dashboard/resume">
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold whitespace-nowrap shadow-md"
+            >
+              <FileText className="w-4 h-4 mr-2" /> View Base Resume
+            </Button>
+          </Link>
         </div>
       )}
 
@@ -100,14 +113,57 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
             <span className="text-slate-500 block uppercase font-medium">Classification</span>
             <span className="text-amber-400 font-semibold uppercase">{profile.candidate_type}</span>
           </div>
-          {profile.personal_details.portfolio_url && (
-            <div className="sm:col-span-2">
-              <span className="text-slate-500 block uppercase font-medium">Portfolio URL</span>
-              <a href={profile.personal_details.portfolio_url} target="_blank" rel="noreferrer" className="text-amber-400 hover:underline">
-                {profile.personal_details.portfolio_url}
+
+          <div>
+            <span className="text-slate-500 block uppercase font-medium">GitHub Profile</span>
+            {profile.personal_details.github_url ? (
+              <a
+                href={profile.personal_details.github_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-amber-400 hover:underline inline-flex items-center gap-1 break-all"
+              >
+                {profile.personal_details.github_url}
+                <ExternalLink className="w-3 h-3 shrink-0" />
               </a>
-            </div>
-          )}
+            ) : (
+              <span className="text-slate-400 italic">Not provided</span>
+            )}
+          </div>
+
+          <div>
+            <span className="text-slate-500 block uppercase font-medium">LinkedIn Profile</span>
+            {profile.personal_details.linkedin_url ? (
+              <a
+                href={profile.personal_details.linkedin_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-amber-400 hover:underline inline-flex items-center gap-1 break-all"
+              >
+                {profile.personal_details.linkedin_url}
+                <ExternalLink className="w-3 h-3 shrink-0" />
+              </a>
+            ) : (
+              <span className="text-slate-400 italic">Not provided</span>
+            )}
+          </div>
+
+          <div className="sm:col-span-2">
+            <span className="text-slate-500 block uppercase font-medium">Portfolio / Personal Website</span>
+            {profile.personal_details.portfolio_url ? (
+              <a
+                href={profile.personal_details.portfolio_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-amber-400 hover:underline inline-flex items-center gap-1 break-all"
+              >
+                {profile.personal_details.portfolio_url}
+                <ExternalLink className="w-3 h-3 shrink-0" />
+              </a>
+            ) : (
+              <span className="text-slate-400 italic">Not provided</span>
+            )}
+          </div>
         </div>
       </Card>
 
@@ -118,7 +174,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
             <Briefcase className="w-4 h-4 text-amber-500" />{" "}
             {profile.candidate_type === "fresher" ? "Internships" : "Work Experience"}
           </h3>
-          <Button type="button" variant="ghost" size="sm" onClick={() => onGoToStep(2)}>
+          <Button type="button" variant="ghost" size="sm" onClick={() => onGoToStep(1)}>
             <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
           </Button>
         </div>
@@ -154,9 +210,9 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
       <Card className="p-6 space-y-4 bg-slate-900/80 border-slate-800">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <GraduationCap className="w-4 h-4 text-amber-500" /> Education
+            <GraduationCap className="w-4 h-4 text-amber-500" /> Education ({profile.education.length})
           </h3>
-          <Button type="button" variant="ghost" size="sm" onClick={() => onGoToStep(3)}>
+          <Button type="button" variant="ghost" size="sm" onClick={() => onGoToStep(2)}>
             <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
           </Button>
         </div>
@@ -168,7 +224,8 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
             {profile.education.map((edu, i) => (
               <div key={i} className="text-xs space-y-1 border-l-2 border-amber-500/40 pl-3">
                 <p className="font-bold text-white">{edu.degree} in {edu.field_of_study}</p>
-                <p className="text-slate-400">{edu.institution} ({edu.start_date} – {edu.end_date || "Present"})</p>
+                <p className="text-slate-300">{edu.institution} {edu.grade ? `(${edu.grade})` : ""}</p>
+                <p className="text-slate-400">{edu.start_date} – {edu.end_date || "Present"}</p>
               </div>
             ))}
           </div>
@@ -181,22 +238,24 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
             <FolderGit2 className="w-4 h-4 text-amber-500" /> Projects ({profile.projects.length})
           </h3>
-          <Button type="button" variant="ghost" size="sm" onClick={() => onGoToStep(4)}>
+          <Button type="button" variant="ghost" size="sm" onClick={() => onGoToStep(3)}>
             <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
           </Button>
         </div>
 
         {profile.projects.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">No projects listed.</p>
+          <p className="text-xs text-slate-400 italic">No projects added.</p>
         ) : (
           <div className="space-y-3">
             {profile.projects.map((proj, i) => (
               <div key={i} className="text-xs space-y-1 border-l-2 border-amber-500/40 pl-3">
                 <p className="font-bold text-white">{proj.name}</p>
-                <p className="text-slate-400 line-clamp-2">{proj.description}</p>
                 {proj.technologies && proj.technologies.length > 0 && (
-                  <p className="text-amber-400/90 font-mono text-[11px]">Stack: {proj.technologies.join(", ")}</p>
+                  <p className="text-amber-400 font-mono text-[11px]">
+                    {proj.technologies.join(", ")}
+                  </p>
                 )}
+                {proj.description && <p className="text-slate-400">{proj.description}</p>}
               </div>
             ))}
           </div>
@@ -209,7 +268,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
             <Code2 className="w-4 h-4 text-amber-500" /> Skills ({profile.skills.length})
           </h3>
-          <Button type="button" variant="ghost" size="sm" onClick={() => onGoToStep(5)}>
+          <Button type="button" variant="ghost" size="sm" onClick={() => onGoToStep(4)}>
             <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
           </Button>
         </div>
@@ -233,7 +292,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
             <Award className="w-4 h-4 text-amber-500" /> Certifications ({profile.certifications.length})
           </h3>
-          <Button type="button" variant="ghost" size="sm" onClick={() => onGoToStep(6)}>
+          <Button type="button" variant="ghost" size="sm" onClick={() => onGoToStep(5)}>
             <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
           </Button>
         </div>
@@ -252,17 +311,43 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
       </Card>
 
       {/* Final Complete Action */}
-      <div className="pt-4 border-t border-slate-800 flex justify-end">
-        <Button
-          type="button"
-          variant="primary"
-          size="lg"
-          onClick={onComplete}
-          isLoading={isSaving}
-          className="px-8 font-bold"
-        >
-          Save & Complete Profile
-        </Button>
+      <div className="pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        {isComplete ? (
+          <div className="flex items-center space-x-2 text-xs text-emerald-400">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Profile marked complete</span>
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">
+            Review your information and complete profile to activate Base Resume.
+          </p>
+        )}
+
+        <div className="flex items-center space-x-3">
+          {isComplete && (
+            <Link href="/dashboard/resume">
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                className="font-bold"
+              >
+                <FileText className="w-4 h-4 mr-2" /> View Base Resume
+              </Button>
+            </Link>
+          )}
+
+          <Button
+            type="button"
+            variant="primary"
+            size="lg"
+            onClick={onComplete}
+            isLoading={isSaving}
+            className="px-8 font-bold"
+          >
+            {isComplete ? "Update & Save Profile" : "Save & Complete Profile"}
+          </Button>
+        </div>
       </div>
     </div>
   );

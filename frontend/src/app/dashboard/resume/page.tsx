@@ -9,9 +9,9 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { api } from "@/lib/api";
-import { getAccessToken } from "@/lib/auth";
 import { CandidateProfile } from "@/types/profile";
 import { ResumeArtifact, ResumeGenerateResponse } from "@/types/resume";
+import { SectionOrderEditor } from "@/components/resume/SectionOrderEditor";
 import {
   FileText,
   Sparkles,
@@ -21,7 +21,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   Loader2,
-  UserCheck,
   Code2,
 } from "lucide-react";
 
@@ -198,8 +197,19 @@ export default function BaseResumePage() {
 
             {/* Main Content Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Left Column: Artifact Metadata & Compiler Status */}
+              {/* Left Column: Section Order Editor & Artifact Details */}
               <div className="space-y-6">
+                <SectionOrderEditor
+                  profile={profile}
+                  onOrderSaved={(newOrder) => {
+                    if (profile) {
+                      setProfile({ ...profile, section_order: newOrder });
+                    }
+                  }}
+                  onRegenerateRequested={handleGenerate}
+                  isGenerating={isGenerating}
+                />
+
                 <Card className="p-6 space-y-4 border-slate-800 bg-slate-900/60">
                   <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">
                     Engine Artifact Details

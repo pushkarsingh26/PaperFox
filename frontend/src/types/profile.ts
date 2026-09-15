@@ -117,6 +117,7 @@ export interface CandidateProfile {
   projects: Project[];
   skills: Skill[];
   certifications: Certification[];
+  section_order?: string[];
   completion_percentage: number;
   created_at?: string;
   updated_at?: string;

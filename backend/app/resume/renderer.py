@@ -1,6 +1,7 @@
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from app.resume.escaping import escape_latex, format_latex_url
+from app.schemas.profile import DEFAULT_SECTION_ORDER
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "templates", "base_resume.tex")
 
@@ -22,6 +23,14 @@ def render_header(header: Dict[str, Any]) -> tuple[str, str]:
 
     contact_line = " \\ \\textbullet\\ \\ ".join(parts)
     return full_name, contact_line
+
+
+def render_summary(summary: str) -> str:
+    if not summary or not summary.strip():
+        return ""
+    lines = ["\\section{Summary}"]
+    lines.append(escape_latex(summary.strip()))
+    return "\n".join(lines)
 
 
 def render_education(education_list: List[Dict[str, Any]]) -> str:
@@ -172,6 +181,7 @@ def render_certifications(certifications: List[Dict[str, Any]]) -> str:
 def render_latex_resume(resume_data: Dict[str, Any]) -> str:
     """
     Renders ResumeData dictionary into a valid, complete LaTeX document.
+    Deterministic assembly obeying user's section_order preference.
     """
     if not os.path.exists(TEMPLATE_PATH):
         raise FileNotFoundError(f"Base LaTeX template not found at {TEMPLATE_PATH}")
@@ -180,6 +190,7 @@ def render_latex_resume(resume_data: Dict[str, Any]) -> str:
         template = f.read()
 
     full_name, contact_line = render_header(resume_data.get("header", {}))
+    summary_sec = render_summary(resume_data.get("summary", ""))
     edu_sec = render_education(resume_data.get("education", []))
     exp_sec = render_experience_items("Work Experience", resume_data.get("experience", []))
     int_sec = render_experience_items("Internships", resume_data.get("internships", []))
@@ -187,15 +198,53 @@ def render_latex_resume(resume_data: Dict[str, Any]) -> str:
     skills_sec = render_skills(resume_data.get("skills", []))
     certs_sec = render_certifications(resume_data.get("certifications", []))
 
-    rendered = (
-        template.replace("{{FULL_NAME}}", full_name)
-        .replace("{{CONTACT_LINE}}", contact_line)
-        .replace("{{EDUCATION_SECTION}}", edu_sec)
-        .replace("{{EXPERIENCE_SECTION}}", exp_sec)
-        .replace("{{INTERNSHIPS_SECTION}}", int_sec)
-        .replace("{{PROJECTS_SECTION}}", proj_sec)
-        .replace("{{SKILLS_SECTION}}", skills_sec)
-        .replace("{{CERTIFICATIONS_SECTION}}", certs_sec)
-    )
+    # Build section map
+    section_map = {
+        "summary": summary_sec,
+        "education": edu_sec,
+        "experience": exp_sec or int_sec,
+        "internships": int_sec,
+        "projects": proj_sec,
+        "skills": skills_sec,
+        "certifications": certs_sec,
+    }
+    # If both experience and internships exist and experience is chosen:
+    if exp_sec and int_sec:
+        section_map["experience"] = f"{exp_sec}\n\n{int_sec}"
+
+    section_order = resume_data.get("section_order") or DEFAULT_SECTION_ORDER
+    order = [s for s in section_order if s in section_map]
+    for def_sec in DEFAULT_SECTION_ORDER:
+        if def_sec not in order:
+            order.append(def_sec)
+
+    ordered_body_sections = []
+    seen = set()
+    for s in order:
+        if s not in seen:
+            seen.add(s)
+            content = section_map.get(s, "").strip()
+            if content:
+                ordered_body_sections.append(content)
+
+    body_sections_str = "\n\n".join(ordered_body_sections)
+
+    if "{{BODY_SECTIONS}}" in template:
+        rendered = (
+            template.replace("{{FULL_NAME}}", full_name)
+            .replace("{{CONTACT_LINE}}", contact_line)
+            .replace("{{BODY_SECTIONS}}", body_sections_str)
+        )
+    else:
+        rendered = (
+            template.replace("{{FULL_NAME}}", full_name)
+            .replace("{{CONTACT_LINE}}", contact_line)
+            .replace("{{EDUCATION_SECTION}}", edu_sec)
+            .replace("{{EXPERIENCE_SECTION}}", exp_sec)
+            .replace("{{INTERNSHIPS_SECTION}}", int_sec)
+            .replace("{{PROJECTS_SECTION}}", proj_sec)
+            .replace("{{SKILLS_SECTION}}", skills_sec)
+            .replace("{{CERTIFICATIONS_SECTION}}", certs_sec)
+        )
 
     return rendered

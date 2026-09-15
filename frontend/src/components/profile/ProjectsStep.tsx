@@ -28,6 +28,21 @@ interface ProjectsStepProps {
   onChangeProjects: (items: Project[]) => void;
 }
 
+export function parseCommaSeparatedTechnologies(input: string): string[] {
+  if (!input) return [];
+  const parts = input.split(",");
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (trimmed && !seen.has(trimmed.toLowerCase())) {
+      seen.add(trimmed.toLowerCase());
+      result.push(trimmed);
+    }
+  }
+  return result;
+}
+
 export const ProjectsStep: React.FC<ProjectsStepProps> = ({
   projects,
   onChangeProjects,
@@ -36,6 +51,7 @@ export const ProjectsStep: React.FC<ProjectsStepProps> = ({
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [extractingIndex, setExtractingIndex] = useState<number | null>(null);
   const [extractionError, setExtractionError] = useState<Record<number, string>>({});
+  const [techInputValues, setTechInputValues] = useState<Record<number, string>>({});
 
   const handleExtractEvidence = async (
     index: number,
@@ -107,6 +123,10 @@ export const ProjectsStep: React.FC<ProjectsStepProps> = ({
     const newPrompts = { ...activePrompts };
     delete newPrompts[index];
     setActivePrompts(newPrompts);
+
+    const newTechInputs = { ...techInputValues };
+    delete newTechInputs[index];
+    setTechInputValues(newTechInputs);
   };
 
   const handleGeneratePrompt = (index: number, project: Project) => {
@@ -148,6 +168,10 @@ export const ProjectsStep: React.FC<ProjectsStepProps> = ({
           {projects.map((item, idx) => {
             const currentSource = item.description_source || "self";
             const generatedPrompt = activePrompts[idx] || (currentSource === "ai" ? generateUniversalProjectPrompt(item) : "");
+            const currentTechText =
+              techInputValues[idx] !== undefined
+                ? techInputValues[idx]
+                : item.technologies?.join(", ") || "";
 
             return (
               <Card key={idx} className="p-6 space-y-5 relative border-slate-800 bg-slate-900/80">
@@ -269,7 +293,7 @@ export const ProjectsStep: React.FC<ProjectsStepProps> = ({
                                 className="absolute top-2 right-2 bg-slate-800/90 text-xs text-indigo-300 hover:bg-slate-700"
                               >
                                 {copiedIndex === idx ? (
-                                  <>
+                                   <>
                                     <Check className="w-3.5 h-3.5 mr-1 text-green-400" /> Copied!
                                   </>
                                 ) : (
@@ -390,14 +414,24 @@ export const ProjectsStep: React.FC<ProjectsStepProps> = ({
                   <Input
                     label="Technologies Used (comma separated)"
                     placeholder="e.g. Next.js, FastAPI, Python, MongoDB, Tailwind"
-                    value={item.technologies?.join(", ") || ""}
-                    onChange={(e) =>
+                    value={currentTechText}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setTechInputValues((prev) => ({ ...prev, [idx]: val }));
                       updateProject(
                         idx,
                         "technologies",
-                        e.target.value.split(",").map((s) => s.trim()).filter(Boolean)
-                      )
-                    }
+                        parseCommaSeparatedTechnologies(val)
+                      );
+                    }}
+                    onBlur={() => {
+                      const normalized = parseCommaSeparatedTechnologies(currentTechText);
+                      setTechInputValues((prev) => ({
+                        ...prev,
+                        [idx]: normalized.join(", "),
+                      }));
+                    }}
+                    helperText="Separate multiple technologies with commas (e.g. Python, FastAPI, MongoDB)"
                   />
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

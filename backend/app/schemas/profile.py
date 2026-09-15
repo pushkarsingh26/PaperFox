@@ -2,6 +2,84 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
+SUPPORTED_RESUME_SECTIONS = [
+    "summary",
+    "education",
+    "experience",
+    "projects",
+    "skills",
+    "certifications",
+]
+
+DEFAULT_SECTION_ORDER = [
+    "summary",
+    "education",
+    "experience",
+    "projects",
+    "skills",
+    "certifications",
+]
+
+
+def normalize_technologies(v: Any) -> List[str]:
+    """
+    Normalizes technology input from string (comma-separated) or list of strings.
+    Strips whitespace, filters empty values, and deduplicates case-insensitively
+    while preserving the original casing of the first appearance.
+    """
+    if v is None:
+        return []
+    if isinstance(v, str):
+        parts = v.split(",")
+    elif isinstance(v, (list, tuple)):
+        parts = []
+        for item in v:
+            if isinstance(item, str) and "," in item:
+                parts.extend(item.split(","))
+            elif isinstance(item, str):
+                parts.append(item)
+    else:
+        return []
+
+    cleaned: List[str] = []
+    seen: set = set()
+    for item in parts:
+        if isinstance(item, str):
+            t = item.strip()
+            if t and t.lower() not in seen:
+                seen.add(t.lower())
+                cleaned.append(t)
+    return cleaned
+
+
+def validate_section_order_list(v: Any) -> Optional[List[str]]:
+    if v is None:
+        return None
+    if isinstance(v, str):
+        v = [s.strip() for s in v.split(",") if s.strip()]
+    if not isinstance(v, (list, tuple)):
+        raise ValueError("section_order must be a list of section identifiers")
+
+    valid_sections = set(SUPPORTED_RESUME_SECTIONS)
+    valid_sections.add("internships")
+    cleaned: List[str] = []
+    seen: set = set()
+    for sec in v:
+        if not isinstance(sec, str):
+            raise ValueError("Section identifier must be a string")
+        s = sec.strip().lower()
+        if not s:
+            raise ValueError("Section identifier cannot be empty")
+        if s not in valid_sections:
+            raise ValueError(
+                f"Unknown section '{sec}'. Supported sections: {SUPPORTED_RESUME_SECTIONS}"
+            )
+        if s in seen:
+            raise ValueError(f"Duplicate section '{sec}' is not allowed in section_order")
+        seen.add(s)
+        cleaned.append(s)
+    return cleaned
+
 
 class PersonalDetails(BaseModel):
     full_name: str = Field(..., min_length=1, description="Full candidate name")
@@ -30,6 +108,10 @@ class InternshipSchema(BaseModel):
     technologies: List[str] = Field(default_factory=list)
     achievements: List[str] = Field(default_factory=list)
 
+    @field_validator("technologies", mode="before")
+    def clean_technologies(cls, v):
+        return normalize_technologies(v)
+
     @model_validator(mode="after")
     def check_dates(self):
         if not self.is_current and self.end_date and self.start_date:
@@ -50,6 +132,10 @@ class WorkExperienceSchema(BaseModel):
     responsibilities: List[str] = Field(default_factory=list)
     technologies: List[str] = Field(default_factory=list)
     achievements: List[str] = Field(default_factory=list)
+
+    @field_validator("technologies", mode="before")
+    def clean_technologies(cls, v):
+        return normalize_technologies(v)
 
     @model_validator(mode="after")
     def check_dates(self):
@@ -83,14 +169,14 @@ class EvidenceSchema(BaseModel):
     architecture: List[str] = Field(default_factory=list)
     technologies: List[str] = Field(default_factory=list)
     frameworks: List[str] = Field(default_factory=list)
-    apis: List[str] = Field(default_factory=list)       # renamed from 'APIs' for consistency
+    apis: List[str] = Field(default_factory=list)
     models: List[str] = Field(default_factory=list)
     databases: List[str] = Field(default_factory=list)
     deployment: List[str] = Field(default_factory=list)
     features: List[str] = Field(default_factory=list)
     technical_details: List[str] = Field(default_factory=list)
     engineering_decisions: List[str] = Field(default_factory=list)
-    limitations: List[str] = Field(default_factory=list)  # unverified/missing items go here
+    limitations: List[str] = Field(default_factory=list)
     verified_at: Optional[datetime] = None
 
 
@@ -114,6 +200,10 @@ class ProjectSchema(BaseModel):
     evidence_status: Optional[str] = Field(default=None, description="unverified | current | stale")
     evidence_updated_at: Optional[datetime] = Field(default=None, description="When evidence was last extracted")
     evidence_version: Optional[int] = Field(default=0, description="Increments on each extraction")
+
+    @field_validator("technologies", mode="before")
+    def clean_technologies(cls, v):
+        return normalize_technologies(v)
 
     @field_validator("description_source", mode="before")
     def validate_description_source(cls, v):
@@ -169,6 +259,11 @@ class ProfileCreate(BaseModel):
     projects: List[ProjectSchema] = Field(default_factory=list)
     skills: List[SkillSchema] = Field(default_factory=list)
     certifications: List[CertificationSchema] = Field(default_factory=list)
+    section_order: Optional[List[str]] = None
+
+    @field_validator("section_order", mode="before")
+    def validate_section_order(cls, v):
+        return validate_section_order_list(v)
 
     @field_validator("skills")
     def prevent_duplicate_skills(cls, skills: List[SkillSchema]):
@@ -191,6 +286,11 @@ class ProfileUpdate(BaseModel):
     projects: Optional[List[ProjectSchema]] = None
     skills: Optional[List[SkillSchema]] = None
     certifications: Optional[List[CertificationSchema]] = None
+    section_order: Optional[List[str]] = None
+
+    @field_validator("section_order", mode="before")
+    def validate_section_order(cls, v):
+        return validate_section_order_list(v)
 
     @field_validator("skills")
     def prevent_duplicate_skills(cls, skills: Optional[List[SkillSchema]]):
@@ -219,6 +319,7 @@ class ProfileResponse(BaseModel):
     projects: List[Dict[str, Any]] = Field(default_factory=list)
     skills: List[Dict[str, Any]] = Field(default_factory=list)
     certifications: List[Dict[str, Any]] = Field(default_factory=list)
+    section_order: Optional[List[str]] = None
     completion_percentage: int
     created_at: datetime
     updated_at: datetime
