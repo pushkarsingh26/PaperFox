@@ -14,16 +14,23 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str = "PaperFox"
     API_V1_STR: str = "/api/v1"
+    ENVIRONMENT: str = "development"
     
     SECRET_KEY: str = "paperfox_super_secret_access_key_change_in_production_32chars"
     REFRESH_SECRET_KEY: str = "paperfox_super_secret_refresh_key_change_in_production_32chars"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    SECURE_COOKIES: bool = False
     
     MONGODB_URL: str = "mongodb://localhost:27017"
     DATABASE_NAME: str = "paperfox"
     
     ALLOWED_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+    # Rate Limiting Configuration
+    RATE_LIMITING_ENABLED: bool = True
+    RATE_LIMIT_AUTH_PER_MINUTE: int = 10
+    RATE_LIMIT_AI_PER_MINUTE: int = 30
 
     # AI Providers Configuration
     GOOGLE_API_KEY: str = ""

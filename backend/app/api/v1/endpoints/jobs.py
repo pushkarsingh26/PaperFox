@@ -1,14 +1,24 @@
-from typing import List
-from fastapi import APIRouter, Depends, Response, status
-from app.api.deps import get_current_user, get_job_service, get_job_resume_service
+from typing import List, Optional
+from fastapi import APIRouter, Depends, Query, Response, status
+from app.api.deps import (
+    get_current_user,
+    get_job_service,
+    get_job_resume_service,
+    get_application_history_service,
+)
 from app.schemas.auth import MessageResponse
 from app.schemas.job import (
     JobApplicationCreate,
     JobApplicationListResponse,
     JobApplicationResponse,
+    JobHistoryResponse,
+    JobHistoryStats,
+    JobNotesUpdate,
+    JobStatusUpdate,
 )
 from app.services.job_service import JobService
 from app.services.job_resume_service import JobResumeService
+from app.services.application_history_service import ApplicationHistoryService
 from app.schemas.optimization_schema import OptimizationResponse
 
 router = APIRouter(prefix="/jobs", tags=["Job Applications"])
@@ -36,6 +46,34 @@ async def list_job_applications(
     return JobApplicationListResponse(items=jobs, total=len(jobs))
 
 
+# ── Phase 7: Application History & Stats ──────────────────────────────────────
+
+@router.get("/history", response_model=JobHistoryResponse)
+async def get_application_history(
+    status: Optional[str] = Query(
+        default=None,
+        description="Filter by application status: draft, applied, interview, offer, rejected, withdrawn",
+    ),
+    current_user: dict = Depends(get_current_user),
+    history_service: ApplicationHistoryService = Depends(get_application_history_service),
+):
+    """Retrieve user's job application history with optional status filter."""
+    user_id = current_user["id"]
+    return await history_service.get_history(user_id, status_filter=status)
+
+
+@router.get("/history/stats", response_model=JobHistoryStats)
+async def get_application_history_stats(
+    current_user: dict = Depends(get_current_user),
+    history_service: ApplicationHistoryService = Depends(get_application_history_service),
+):
+    """Retrieve application status count statistics for the user."""
+    user_id = current_user["id"]
+    return await history_service.get_stats(user_id)
+
+
+# ── Job Details & Actions ─────────────────────────────────────────────────────
+
 @router.get("/{job_id}", response_model=JobApplicationResponse)
 async def get_job_application(
     job_id: str,
@@ -45,6 +83,37 @@ async def get_job_application(
     """Retrieve details of a specific Job Application owned by the user."""
     user_id = current_user["id"]
     return await job_service.get_job(user_id, job_id)
+
+
+# ── Phase 7: Application Status & Notes Updates ───────────────────────────────
+
+@router.patch("/{job_id}/status", response_model=JobApplicationResponse)
+async def update_application_status(
+    job_id: str,
+    body: JobStatusUpdate,
+    current_user: dict = Depends(get_current_user),
+    history_service: ApplicationHistoryService = Depends(get_application_history_service),
+):
+    """
+    Phase 7: Transition the application status.
+    Changing status never alters master profile, JD, optimization snapshot, or resume.
+    """
+    user_id = current_user["id"]
+    return await history_service.update_status(user_id, job_id, body.status.value)
+
+
+@router.patch("/{job_id}/notes", response_model=JobApplicationResponse)
+async def update_application_notes(
+    job_id: str,
+    body: JobNotesUpdate,
+    current_user: dict = Depends(get_current_user),
+    history_service: ApplicationHistoryService = Depends(get_application_history_service),
+):
+    """
+    Phase 7: Update personal notes for a job application.
+    """
+    user_id = current_user["id"]
+    return await history_service.update_notes(user_id, job_id, body.notes)
 
 
 @router.post("/{job_id}/analyze", response_model=JobApplicationResponse)

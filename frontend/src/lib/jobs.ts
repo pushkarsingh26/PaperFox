@@ -129,6 +129,41 @@ export interface JobResumeRenderResponse {
   artifact: Record<string, any>;
 }
 
+export type ApplicationStatus =
+  | "draft"
+  | "applied"
+  | "interview"
+  | "rejected"
+  | "offer"
+  | "withdrawn";
+
+export interface JobHistoryItem {
+  id: string;
+  company_name: string;
+  role_title: string;
+  job_url?: string;
+  location?: string;
+  application_status: ApplicationStatus | string;
+  notes?: string;
+  is_analyzed: boolean;
+  is_optimized: boolean;
+  is_resume_generated: boolean;
+  status_updated_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JobHistoryResponse {
+  items: JobHistoryItem[];
+  total: number;
+  status_filter?: string;
+}
+
+export interface JobHistoryStats {
+  total: number;
+  by_status: Record<string, number>;
+}
+
 // ── Job Application ──────────────────────────────────────────────────────────
 
 export interface JobApplication {
@@ -147,6 +182,9 @@ export interface JobApplication {
   is_optimized?: boolean;
   job_resume_artifact?: JobResumeArtifact;
   is_resume_generated?: boolean;
+  application_status?: ApplicationStatus | string;
+  notes?: string;
+  status_updated_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -210,6 +248,41 @@ export async function getJobResumeArtifactApi(jobId: string): Promise<JobResumeA
 export function getJobResumePdfUrl(jobId: string): string {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
   return `${baseUrl}/jobs/${jobId}/resume/download`;
+}
+
+// Phase 7 API functions
+
+export async function updateJobStatusApi(
+  jobId: string,
+  status: ApplicationStatus | string
+): Promise<JobApplication> {
+  const response = await api.patch<JobApplication>(`/jobs/${jobId}/status`, {
+    status,
+  });
+  return response.data;
+}
+
+export async function updateJobNotesApi(
+  jobId: string,
+  notes: string
+): Promise<JobApplication> {
+  const response = await api.patch<JobApplication>(`/jobs/${jobId}/notes`, {
+    notes,
+  });
+  return response.data;
+}
+
+export async function getJobHistoryApi(
+  statusFilter?: string
+): Promise<JobHistoryResponse> {
+  const params = statusFilter ? { status: statusFilter } : {};
+  const response = await api.get<JobHistoryResponse>("/jobs/history", { params });
+  return response.data;
+}
+
+export async function getJobHistoryStatsApi(): Promise<JobHistoryStats> {
+  const response = await api.get<JobHistoryStats>("/jobs/history/stats");
+  return response.data;
 }
 
 export async function deleteJobApi(jobId: string): Promise<void> {

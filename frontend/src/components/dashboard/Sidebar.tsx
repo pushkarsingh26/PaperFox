@@ -7,7 +7,7 @@ import {
   LayoutDashboard,
   User,
   Briefcase,
-  Sparkles,
+  Layers,
   FileCheck,
   Settings,
   Lock,
@@ -26,8 +26,8 @@ const navItems: NavItem[] = [
   { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { name: "Candidate Profile", href: "/dashboard/profile", icon: User },
   { name: "Job Workspace", href: "/dashboard/jobs", icon: Briefcase },
+  { name: "Applications Pipeline", href: "/dashboard/applications", icon: Layers },
   { name: "LaTeX Documents", href: "/dashboard/resume", icon: FileCheck },
-  { name: "Resume Optimizer", href: "#", icon: Sparkles, phase2: true },
   { name: "System Settings", href: "#", icon: Settings, phase2: true },
 ];
 
@@ -89,11 +89,11 @@ export const Sidebar: React.FC = () => {
 
       <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3.5 space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-300">Phase 4 Target</span>
+          <span className="text-xs font-semibold text-slate-300">Phase 7 Ready</span>
           <Badge variant="success">Active</Badge>
         </div>
         <p className="text-xs text-slate-400 leading-relaxed">
-          Job Workspace & Multi-Provider AI JD Intelligence active.
+          Project Evidence Extraction & Application History Pipeline active.
         </p>
       </div>
     </aside>

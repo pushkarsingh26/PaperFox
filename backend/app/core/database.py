@@ -33,10 +33,36 @@ async def connect_to_mongo():
         profiles_collection = db_instance.db["candidate_profiles"]
         await profiles_collection.create_index("user_id", unique=True)
         
-        logger.info("MongoDB connection established successfully and indexes ensured.")
+        # Phase 4-7: Job applications & history indexes
+        jobs_collection = db_instance.db["job_applications"]
+        await jobs_collection.create_index("user_id")
+        await jobs_collection.create_index([("user_id", 1), ("application_status", 1)])
+        await jobs_collection.create_index([("user_id", 1), ("created_at", -1)])
+
+        # Phase 3 & 6: Resume artifacts indexes
+        resumes_collection = db_instance.db["resume_artifacts"]
+        await resumes_collection.create_index("user_id")
+        await resumes_collection.create_index([("user_id", 1), ("job_id", 1)])
+        
+        logger.info("MongoDB connection established successfully and production indexes ensured.")
     except Exception as e:
         logger.error(f"Failed to initialize MongoDB database connection/indexes: {e}")
         raise e
+
+
+async def ping_database() -> bool:
+    """
+    Safely ping MongoDB to check connectivity for health checks without exposing sensitive info.
+    """
+    if db_instance.client is None:
+        return False
+    try:
+        # Ping the admin database
+        await db_instance.client.admin.command("ping")
+        return True
+    except Exception as e:
+        logger.warning(f"Database ping failed: {e}")
+        return False
 
 
 async def close_mongo_connection():

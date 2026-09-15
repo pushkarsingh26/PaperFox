@@ -56,12 +56,15 @@ export interface ProjectEvidence {
   architecture?: string[];
   technologies?: string[];
   frameworks?: string[];
+  apis?: string[];
   APIs?: string[];
   models?: string[];
   databases?: string[];
   deployment?: string[];
   features?: string[];
   technical_details?: string[];
+  engineering_decisions?: string[];
+  limitations?: string[];
   verified_at?: string;
 }
 
@@ -81,6 +84,9 @@ export interface Project {
   description_source?: "self" | "ai";
   ai_analysis_text?: string;
   evidence?: ProjectEvidence;
+  evidence_status?: "unverified" | "current" | "stale";
+  evidence_updated_at?: string;
+  evidence_version?: number;
 }
 
 export interface Skill {

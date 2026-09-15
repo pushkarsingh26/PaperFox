@@ -5,8 +5,23 @@ import { Project } from "@/types/profile";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { FolderGit2, Plus, Trash2, User, Sparkles, Copy, Check, FileText } from "lucide-react";
+import {
+  FolderGit2,
+  Plus,
+  Trash2,
+  User,
+  Sparkles,
+  Copy,
+  Check,
+  FileText,
+  Loader2,
+  CheckCircle2,
+  RefreshCw,
+  AlertCircle,
+} from "lucide-react";
 import { generateUniversalProjectPrompt } from "@/lib/promptGenerator";
+import { extractProjectEvidenceApi } from "@/lib/profile_evidence";
+import { EvidencePanel } from "./EvidencePanel";
 
 interface ProjectsStepProps {
   projects: Project[];
@@ -19,6 +34,51 @@ export const ProjectsStep: React.FC<ProjectsStepProps> = ({
 }) => {
   const [activePrompts, setActivePrompts] = useState<Record<number, string>>({});
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [extractingIndex, setExtractingIndex] = useState<number | null>(null);
+  const [extractionError, setExtractionError] = useState<Record<number, string>>({});
+
+  const handleExtractEvidence = async (
+    index: number,
+    project: Project,
+    force: boolean = false
+  ) => {
+    if (!project.id) {
+      setExtractionError((prev) => ({
+        ...prev,
+        [index]: "Please save your profile first before extracting evidence for this project.",
+      }));
+      return;
+    }
+
+    setExtractingIndex(index);
+    setExtractionError((prev) => {
+      const copy = { ...prev };
+      delete copy[index];
+      return copy;
+    });
+
+    try {
+      const res = await extractProjectEvidenceApi(project.id, force);
+      const updated = [...projects];
+      updated[index] = {
+        ...updated[index],
+        evidence: res.evidence,
+        evidence_status: res.evidence_status as any,
+        evidence_updated_at: res.extracted_at,
+        evidence_version: res.evidence_version,
+      };
+      onChangeProjects(updated);
+    } catch (err: any) {
+      console.error("Evidence extraction error:", err);
+      const msg =
+        err?.response?.data?.detail ||
+        err?.message ||
+        "Failed to extract project evidence. Check network/AI status.";
+      setExtractionError((prev) => ({ ...prev, [index]: msg }));
+    } finally {
+      setExtractingIndex(null);
+    }
+  };
 
   const addProject = () => {
     onChangeProjects([
@@ -233,10 +293,96 @@ export const ProjectsStep: React.FC<ProjectsStepProps> = ({
                             rows={6}
                             placeholder="Paste the plain-text response returned by your coding AI here..."
                             value={item.ai_analysis_text || ""}
-                            onChange={(e) => updateProject(idx, "ai_analysis_text", e.target.value)}
+                            onChange={(e) => {
+                              updateProject(idx, "ai_analysis_text", e.target.value);
+                              if (item.evidence_status === "current") {
+                                updateProject(idx, "evidence_status", "stale");
+                              }
+                            }}
                             className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-600 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500"
                           />
                         </div>
+
+                        {/* Phase 7: Evidence Extraction Button & Panel */}
+                        {item.ai_analysis_text && item.ai_analysis_text.trim().length > 0 && (
+                          <div className="space-y-4 pt-3 border-t border-indigo-500/20">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div className="space-y-0.5">
+                                <span className="text-xs font-semibold text-slate-200">
+                                  Structured Evidence Extraction
+                                </span>
+                                <p className="text-[11px] text-slate-400">
+                                  Convert raw AI analysis into verified structured evidence for resume optimization.
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="primary"
+                                  disabled={extractingIndex === idx || !item.id}
+                                  onClick={() => handleExtractEvidence(idx, item, false)}
+                                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs"
+                                >
+                                  {extractingIndex === idx ? (
+                                    <>
+                                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                                      Extracting...
+                                    </>
+                                  ) : item.evidence_status === "current" ? (
+                                    <>
+                                      <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-300" />
+                                      Evidence Current
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                                      Extract Evidence
+                                    </>
+                                  )}
+                                </Button>
+
+                                {item.evidence_status === "current" && (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={extractingIndex === idx || !item.id}
+                                    onClick={() => handleExtractEvidence(idx, item, true)}
+                                    className="border-slate-700 text-slate-300 hover:bg-slate-800 text-xs"
+                                  >
+                                    <RefreshCw className={`w-3.5 h-3.5 mr-1 ${extractingIndex === idx ? "animate-spin" : ""}`} />
+                                    Force Re-extract
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+
+                            {!item.id && (
+                              <p className="text-[11px] text-amber-400">
+                                Note: Please save your profile first to extract evidence for new projects.
+                              </p>
+                            )}
+
+                            {extractionError[idx] && (
+                              <div className="p-2.5 rounded bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                                <span>{extractionError[idx]}</span>
+                              </div>
+                            )}
+
+                            {item.evidence && (
+                              <EvidencePanel
+                                evidence={item.evidence}
+                                evidenceStatus={item.evidence_status}
+                                evidenceVersion={item.evidence_version}
+                                evidenceUpdatedAt={item.evidence_updated_at}
+                                projectName={item.name}
+                              />
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

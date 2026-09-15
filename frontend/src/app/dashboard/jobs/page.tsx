@@ -17,6 +17,7 @@ import {
 } from "@/lib/jobs";
 import { OptimizationReview } from "@/components/jobs/OptimizationReview";
 import JobResumePanel from "@/components/jobs/JobResumePanel";
+import { ApplicationStatusPanel } from "@/components/jobs/ApplicationStatusPanel";
 import {
   Briefcase,
   Plus,
@@ -35,6 +36,7 @@ import {
   Tag,
   RefreshCw,
   X,
+  FileEdit,
 } from "lucide-react";
 
 export default function JobsPage() {
@@ -58,7 +60,7 @@ export default function JobsPage() {
   const [analysisError, setAnalysisError] = useState<{ id: string; msg: string } | null>(null);
   const [optimizingId, setOptimizingId] = useState<string | null>(null);
   const [optimizationError, setOptimizationError] = useState<{ id: string; msg: string } | null>(null);
-  const [activeViewTab, setActiveViewTab] = useState<"intelligence" | "optimization">("intelligence");
+  const [activeViewTab, setActiveViewTab] = useState<"status" | "intelligence" | "optimization">("status");
   const [selectedJob, setSelectedJob] = useState<JobApplication | null>(null);
 
   const fetchJobs = async () => {
@@ -412,40 +414,71 @@ export default function JobsPage() {
                       </div>
                     )}
 
-                    {/* View Switcher Tabs (when Analyzed or Optimized) */}
-                    {selectedJob.is_analyzed && (
-                      <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-                        <button
-                          type="button"
-                          onClick={() => setActiveViewTab("intelligence")}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                            activeViewTab === "intelligence"
-                              ? "bg-slate-800 text-amber-300 border border-amber-500/30"
-                              : "text-slate-400 hover:text-slate-200"
-                          }`}
-                        >
-                          JD Intelligence
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setActiveViewTab("optimization")}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                            activeViewTab === "optimization"
-                              ? "bg-indigo-950/60 text-indigo-300 border border-indigo-500/40"
-                              : "text-slate-400 hover:text-slate-200"
-                          }`}
-                        >
-                          <Sparkles className="w-3 h-3 text-indigo-400" />
-                          Optimized Resume Snapshot
-                          {selectedJob.optimization && (
-                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                          )}
-                        </button>
-                      </div>
-                    )}
+                    {/* View Switcher Tabs */}
+                    <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3">
+                      <button
+                        type="button"
+                        onClick={() => setActiveViewTab("status")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                          activeViewTab === "status"
+                            ? "bg-slate-800 text-amber-300 border border-amber-500/30"
+                            : "text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        <FileEdit className="w-3.5 h-3.5" />
+                        Application Status & Notes
+                        {selectedJob.application_status && (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] bg-slate-900 text-slate-300 font-mono uppercase">
+                            {selectedJob.application_status}
+                          </span>
+                        )}
+                      </button>
 
-                    {/* Tab 2: Optimization Review View */}
-                    {activeViewTab === "optimization" && selectedJob.is_analyzed ? (
+                      <button
+                        type="button"
+                        onClick={() => setActiveViewTab("intelligence")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                          activeViewTab === "intelligence"
+                            ? "bg-slate-800 text-amber-300 border border-amber-500/30"
+                            : "text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        <Brain className="w-3.5 h-3.5" />
+                        JD Intelligence
+                        {selectedJob.is_analyzed && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveViewTab("optimization")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                          activeViewTab === "optimization"
+                            ? "bg-indigo-950/60 text-indigo-300 border border-indigo-500/40"
+                            : "text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                        Optimized Resume Snapshot
+                        {selectedJob.optimization && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Tab Content 1: Application Status Panel */}
+                    {activeViewTab === "status" ? (
+                      <ApplicationStatusPanel
+                        job={selectedJob}
+                        onJobUpdated={(updated) => {
+                          setJobs((prev) =>
+                            prev.map((j) => (j.id === updated.id ? updated : j))
+                          );
+                          setSelectedJob(updated);
+                        }}
+                      />
+                    ) : activeViewTab === "optimization" ? (
                       selectedJob.optimization ? (
                         <div className="space-y-2">
                           <OptimizationReview

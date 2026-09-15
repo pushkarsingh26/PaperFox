@@ -50,6 +50,10 @@ class JobService:
             is_optimized=doc.get("is_optimized", False),
             job_resume_artifact=doc.get("job_resume_artifact"),
             is_resume_generated=doc.get("is_resume_generated", False),
+            # Phase 7: application lifecycle
+            application_status=doc.get("application_status", "draft"),
+            notes=doc.get("notes"),
+            status_updated_at=doc.get("status_updated_at"),
             created_at=doc["created_at"],
             updated_at=doc["updated_at"]
         )
@@ -159,12 +163,26 @@ Job Description:
         profile_snapshot = copy.deepcopy(profile_doc)
         job_reqs = JobRequirements(**doc["requirements"])
 
-        # Parse Project AI Analysis into Structured Evidence when available
+        # Parse Project AI Analysis into Structured Evidence
+        # Phase 7 optimization: prefer stored evidence over re-extraction
         evidence_parser = ProjectEvidenceParser(self.router)
         structured_evidence_map: Dict[str, StructuredProjectEvidence] = {}
 
         for proj in profile_snapshot.get("projects", []):
             p_name = proj.get("name", "Project")
+
+            # 1. Use stored current evidence if available (avoids duplicate AI calls)
+            stored_evidence = proj.get("evidence")
+            stored_status = proj.get("evidence_status")
+            if stored_evidence and stored_status == "current":
+                try:
+                    ev = StructuredProjectEvidence(**stored_evidence)
+                    structured_evidence_map[p_name] = ev
+                    continue  # Skip re-extraction
+                except Exception:
+                    pass  # Fallback to fresh extraction below
+
+            # 2. Fallback: extract from raw ai_analysis_text
             ai_text = proj.get("ai_analysis_text")
             if ai_text and ai_text.strip():
                 ev = await evidence_parser.parse_analysis_text(p_name, ai_text)

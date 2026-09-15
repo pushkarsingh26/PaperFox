@@ -17,8 +17,12 @@ def event_loop():
     loop.close()
 
 
+from app.core.middleware import reset_rate_limiters
+
+
 @pytest_asyncio.fixture(autouse=True)
 async def mock_mongo_db():
+    reset_rate_limiters()
     client = mongomock_motor.AsyncMongoMockClient()
     db = client["paperfox_test_db"]
     
@@ -36,6 +40,7 @@ async def mock_mongo_db():
     await db["sessions"].delete_many({})
     await db["candidate_profiles"].delete_many({})
     await db["job_applications"].delete_many({})
+    reset_rate_limiters()
 
 
 @pytest_asyncio.fixture

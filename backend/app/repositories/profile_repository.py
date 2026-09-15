@@ -31,3 +31,34 @@ class ProfileRepository(BaseRepository):
     async def delete_by_user_id(self, user_id: str) -> bool:
         result = await self.collection.delete_one({"user_id": user_id})
         return result.deleted_count > 0
+
+    async def update_project_evidence(
+        self,
+        user_id: str,
+        project_id: str,
+        evidence_dict: dict,
+        evidence_status: str,
+        evidence_version: int,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Atomically update the evidence subdocument for a single project (matched by id)
+        inside the candidate_profiles.projects array.
+        Uses MongoDB positional operator for atomic array element update.
+        Strict user_id ownership — never touches another user's profile.
+        """
+        now = datetime.now(timezone.utc)
+        result = await self.collection.update_one(
+            {"user_id": user_id, "projects.id": project_id},
+            {
+                "$set": {
+                    "projects.$.evidence": evidence_dict,
+                    "projects.$.evidence_status": evidence_status,
+                    "projects.$.evidence_updated_at": now,
+                    "projects.$.evidence_version": evidence_version,
+                    "updated_at": now,
+                }
+            },
+        )
+        if result.matched_count > 0:
+            return await self.get_by_user_id(user_id)
+        return None

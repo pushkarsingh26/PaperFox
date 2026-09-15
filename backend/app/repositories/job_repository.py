@@ -24,6 +24,10 @@ class JobRepository(BaseRepository):
             "analysis_provider": None,
             "analysis_model": None,
             "is_analyzed": False,
+            # Phase 7: application lifecycle defaults
+            "application_status": "draft",
+            "notes": None,
+            "status_updated_at": now,
             "created_at": now,
             "updated_at": now
         }
@@ -77,3 +81,58 @@ class JobRepository(BaseRepository):
         if doc and doc.get("job_resume_artifact"):
             return doc["job_resume_artifact"]
         return None
+
+    # ── Phase 7: Application History ──────────────────────────────────────────
+
+    async def update_status(
+        self, job_id: str, user_id: str, new_status: str
+    ) -> Optional[Dict[str, Any]]:
+        """Update the application_status for a job. Strict user_id ownership check."""
+        now = datetime.now(timezone.utc)
+        result = await self.collection.update_one(
+            {"_id": job_id, "user_id": user_id},
+            {"$set": {"application_status": new_status, "status_updated_at": now, "updated_at": now}},
+        )
+        if result.matched_count > 0:
+            return await self.get_by_id(job_id, user_id)
+        return None
+
+    async def update_notes(
+        self, job_id: str, user_id: str, notes: str
+    ) -> Optional[Dict[str, Any]]:
+        """Update the free-text notes for a job application."""
+        now = datetime.now(timezone.utc)
+        result = await self.collection.update_one(
+            {"_id": job_id, "user_id": user_id},
+            {"$set": {"notes": notes or None, "updated_at": now}},
+        )
+        if result.matched_count > 0:
+            return await self.get_by_id(job_id, user_id)
+        return None
+
+    async def list_by_status(
+        self, user_id: str, status_filter: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """List all applications for a user, optionally filtered by application_status."""
+        query: Dict[str, Any] = {"user_id": user_id}
+        if status_filter:
+            query["application_status"] = status_filter
+        cursor = self.collection.find(query).sort("updated_at", -1)
+        return await cursor.to_list(length=500)
+
+    async def get_stats(self, user_id: str) -> Dict[str, int]:
+        """Return count of applications per status for a user."""
+        from app.schemas.job import ApplicationStatus
+        pipeline = [
+            {"$match": {"user_id": user_id}},
+            {"$group": {"_id": "$application_status", "count": {"$sum": 1}}},
+        ]
+        cursor = self.collection.aggregate(pipeline)
+        raw = await cursor.to_list(length=50)
+        # Ensure all statuses are represented (even at 0)
+        stats: Dict[str, int] = {s.value: 0 for s in ApplicationStatus}
+        for row in raw:
+            key = row.get("_id") or "draft"
+            if key in stats:
+                stats[key] = row["count"]
+        return stats

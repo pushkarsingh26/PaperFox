@@ -73,17 +73,24 @@ class EducationSchema(BaseModel):
 
 
 class EvidenceSchema(BaseModel):
-    status: Optional[str] = "unverified"
-    source: Optional[str] = None
+    """
+    Structured project evidence extracted from ai_analysis_text.
+    Aligns with StructuredProjectEvidence in optimization_schema.
+    Provenance: 'self' facts come from the user; 'ai_analysis' facts are AI-extracted.
+    """
+    status: Optional[str] = "unverified"         # unverified | current | stale
+    source: Optional[str] = "ai_analysis"        # self | ai_analysis
     architecture: List[str] = Field(default_factory=list)
     technologies: List[str] = Field(default_factory=list)
     frameworks: List[str] = Field(default_factory=list)
-    APIs: List[str] = Field(default_factory=list)
+    apis: List[str] = Field(default_factory=list)       # renamed from 'APIs' for consistency
     models: List[str] = Field(default_factory=list)
     databases: List[str] = Field(default_factory=list)
     deployment: List[str] = Field(default_factory=list)
     features: List[str] = Field(default_factory=list)
     technical_details: List[str] = Field(default_factory=list)
+    engineering_decisions: List[str] = Field(default_factory=list)
+    limitations: List[str] = Field(default_factory=list)  # unverified/missing items go here
     verified_at: Optional[datetime] = None
 
 
@@ -103,6 +110,10 @@ class ProjectSchema(BaseModel):
     description_source: str = Field(default="self", description="'self' or 'ai'")
     ai_analysis_text: Optional[str] = Field(default=None, description="Raw plain-text analysis response pasted by candidate")
     evidence: Optional[EvidenceSchema] = None
+    # Phase 7: evidence lifecycle tracking
+    evidence_status: Optional[str] = Field(default=None, description="unverified | current | stale")
+    evidence_updated_at: Optional[datetime] = Field(default=None, description="When evidence was last extracted")
+    evidence_version: Optional[int] = Field(default=0, description="Increments on each extraction")
 
     @field_validator("description_source", mode="before")
     def validate_description_source(cls, v):

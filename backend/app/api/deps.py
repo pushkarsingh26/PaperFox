@@ -15,6 +15,8 @@ from app.services.resume_service import ResumeService
 from app.services.user_service import UserService
 from app.services.job_service import JobService
 from app.services.job_resume_service import JobResumeService
+from app.services.project_evidence_service import ProjectEvidenceService
+from app.services.application_history_service import ApplicationHistoryService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
@@ -74,6 +76,18 @@ def get_job_resume_service(
     job_repo: JobRepository = Depends(get_job_repository),
 ) -> JobResumeService:
     return JobResumeService(job_repo)
+
+
+def get_project_evidence_service(
+    profile_repo: ProfileRepository = Depends(get_profile_repository),
+) -> ProjectEvidenceService:
+    return ProjectEvidenceService(profile_repo)
+
+
+def get_application_history_service(
+    job_repo: JobRepository = Depends(get_job_repository),
+) -> ApplicationHistoryService:
+    return ApplicationHistoryService(job_repo)
 
 
 def get_auth_service(

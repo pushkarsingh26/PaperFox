@@ -1,6 +1,20 @@
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, HttpUrl, field_validator
+
+
+class ApplicationStatus(str, Enum):
+    """
+    Lifecycle state of a job application.
+    Changing status MUST NOT alter master profile, JD, optimization snapshot, or resume.
+    """
+    DRAFT = "draft"
+    APPLIED = "applied"
+    INTERVIEW = "interview"
+    REJECTED = "rejected"
+    OFFER = "offer"
+    WITHDRAWN = "withdrawn"
 
 
 class JobRequirements(BaseModel):
@@ -104,6 +118,10 @@ class JobApplicationResponse(BaseModel):
     is_optimized: bool = False
     job_resume_artifact: Optional[Dict[str, Any]] = None
     is_resume_generated: bool = False
+    # Phase 7: application lifecycle
+    application_status: str = Field(default="draft", description="draft|applied|interview|rejected|offer|withdrawn")
+    notes: Optional[str] = None
+    status_updated_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
@@ -111,3 +129,43 @@ class JobApplicationResponse(BaseModel):
 class JobApplicationListResponse(BaseModel):
     items: List[JobApplicationResponse]
     total: int
+
+
+# ── Phase 7: Application History schemas ──────────────────────────────────────
+
+class JobStatusUpdate(BaseModel):
+    """Request body for PATCH /jobs/{job_id}/status"""
+    status: ApplicationStatus
+
+
+class JobNotesUpdate(BaseModel):
+    """Request body for PATCH /jobs/{job_id}/notes"""
+    notes: str = Field(default="", max_length=5000, description="Free-text notes for this application")
+
+
+class JobHistoryItem(BaseModel):
+    """Lightweight view of a job application for history listing."""
+    id: str
+    company_name: str
+    role_title: str
+    job_url: Optional[str] = None
+    location: Optional[str] = None
+    application_status: str = "draft"
+    notes: Optional[str] = None
+    is_analyzed: bool = False
+    is_optimized: bool = False
+    is_resume_generated: bool = False
+    status_updated_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class JobHistoryResponse(BaseModel):
+    items: List[JobHistoryItem]
+    total: int
+    status_filter: Optional[str] = None
+
+
+class JobHistoryStats(BaseModel):
+    total: int = 0
+    by_status: Dict[str, int] = Field(default_factory=dict)

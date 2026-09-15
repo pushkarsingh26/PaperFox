@@ -1,10 +1,17 @@
 import hashlib
 import uuid
+import warnings
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
-# pyrefly: ignore [missing-import]
 import jwt
-# pyrefly: ignore [missing-import]
+import bcrypt
+
+# Suppress passlib's trapped warning with bcrypt >= 4.0.0
+if not hasattr(bcrypt, "__about__"):
+    class BcryptAbout:
+        __version__ = getattr(bcrypt, "__version__", "4.0.0")
+    bcrypt.__about__ = BcryptAbout()
+
 from passlib.context import CryptContext
 from app.core.config import settings
 
