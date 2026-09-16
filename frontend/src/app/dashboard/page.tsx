@@ -18,7 +18,7 @@ export default function DashboardPage() {
         <div className="flex-1 flex">
           <Sidebar />
 
-          <main className="flex-1 p-6 md:p-10 max-w-6xl">
+          <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
             {user && <SystemStatusCard user={user} />}
           </main>
         </div>

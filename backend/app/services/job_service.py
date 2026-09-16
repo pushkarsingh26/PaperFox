@@ -1,13 +1,19 @@
-from IPython.core import logger
 import copy
+import logging
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 from fastapi import HTTPException, status
 from app.repositories.job_repository import JobRepository
 from app.repositories.profile_repository import ProfileRepository
+from datetime import datetime, timezone
 from app.schemas.job import (
+    ConfirmedSkill,
     JobApplicationCreate,
     JobApplicationResponse,
-    JobRequirements
+    JobRequirements,
+    MailingDraft,
+    SuggestedMissingSkill,
 )
 from app.schemas.optimization_schema import OptimizationResponse, OptimizedResumeData, StructuredProjectEvidence
 from app.services.ai.optimizer_service import OptimizerService
@@ -34,6 +40,38 @@ class JobService:
             except Exception:
                 reqs = None
 
+        suggested_skills = []
+        if doc.get("suggested_missing_skills"):
+            try:
+                suggested_skills = [SuggestedMissingSkill(**s) if isinstance(s, dict) else s for s in doc["suggested_missing_skills"]]
+            except Exception:
+                suggested_skills = []
+
+        confirmed_skills = []
+        if doc.get("confirmed_skills"):
+            try:
+                confirmed_skills = [
+                    ConfirmedSkill(**s) if isinstance(s, dict) else s for s in doc["confirmed_skills"]
+                ]
+            except Exception:
+                confirmed_skills = []
+        elif doc.get("approved_additional_skills"):
+            confirmed_skills = [
+                ConfirmedSkill(skill=s, source="candidate_confirmed")
+                for s in doc.get("approved_additional_skills", [])
+            ]
+
+        mailing_draft = None
+        if doc.get("mailing_draft"):
+            try:
+                mailing_draft = (
+                    MailingDraft(**doc["mailing_draft"])
+                    if isinstance(doc["mailing_draft"], dict)
+                    else doc["mailing_draft"]
+                )
+            except Exception:
+                mailing_draft = None
+
         return JobApplicationResponse(
             id=str(doc["_id"]),
             user_id=str(doc["user_id"]),
@@ -43,6 +81,9 @@ class JobService:
             job_url=doc.get("job_url"),
             location=doc.get("location"),
             requirements=reqs,
+            suggested_missing_skills=suggested_skills,
+            approved_additional_skills=doc.get("approved_additional_skills", []),
+            confirmed_skills=confirmed_skills,
             analysis_provider=doc.get("analysis_provider"),
             analysis_model=doc.get("analysis_model"),
             is_analyzed=doc.get("is_analyzed", False),
@@ -50,7 +91,8 @@ class JobService:
             is_optimized=doc.get("is_optimized", False),
             job_resume_artifact=doc.get("job_resume_artifact"),
             is_resume_generated=doc.get("is_resume_generated", False),
-            # Phase 7: application lifecycle
+            mailing_draft=mailing_draft,
+            # Application lifecycle
             application_status=doc.get("application_status", "draft"),
             notes=doc.get("notes"),
             status_updated_at=doc.get("status_updated_at"),
@@ -125,13 +167,45 @@ Job Description:
                 detail=f"AI output failed JobRequirements schema validation: {str(e)}"
             )
 
+        # Extract candidate facts for missing skills evaluation if profile exists
+        suggested_skills = []
+        if self.profile_repository:
+            profile_doc = await self.profile_repository.get_by_user_id(user_id)
+            if profile_doc:
+                optimizer = OptimizerService(self.router)
+                suggested_skills = await optimizer.analyze_critical_missing_skills(
+                    candidate_profile=profile_doc,
+                    job_requirements=reqs
+                )
+
         update_data = {
             "requirements": reqs.model_dump(),
+            "suggested_missing_skills": [s.model_dump() for s in suggested_skills],
             "analysis_provider": ai_res["provider"],
             "analysis_model": ai_res["model"],
             "is_analyzed": True
         }
 
+        updated_doc = await self.job_repository.update_job(job_id, user_id, update_data)
+        return self._doc_to_response(updated_doc)
+
+    async def update_approved_skills(
+        self, user_id: str, job_id: str, approved_skills: List[str]
+    ) -> JobApplicationResponse:
+        doc = await self.job_repository.get_by_id(job_id, user_id)
+        if not doc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job application not found")
+
+        cleaned_skills = [s.strip() for s in approved_skills if s and s.strip()]
+        confirmed_records = [
+            {"skill": s, "source": "candidate_confirmed", "confirmed_at": datetime.now(timezone.utc)}
+            for s in cleaned_skills
+        ]
+
+        update_data = {
+            "approved_additional_skills": cleaned_skills,
+            "confirmed_skills": confirmed_records
+        }
         updated_doc = await self.job_repository.update_job(job_id, user_id, update_data)
         return self._doc_to_response(updated_doc)
 
@@ -194,7 +268,8 @@ Job Description:
                 job_id=job_id,
                 candidate_profile=profile_snapshot,
                 job_requirements=job_reqs,
-                structured_evidence_map=structured_evidence_map
+                structured_evidence_map=structured_evidence_map,
+                approved_additional_skills=doc.get("approved_additional_skills", [])
             )
         except Exception as e:
             # On failure, preserve existing optimization if present

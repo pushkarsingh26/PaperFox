@@ -5,9 +5,11 @@ from app.api.deps import (
     get_job_service,
     get_job_resume_service,
     get_application_history_service,
+    get_mailing_service,
 )
 from app.schemas.auth import MessageResponse
 from app.schemas.job import (
+    ApprovedSkillsRequest,
     JobApplicationCreate,
     JobApplicationListResponse,
     JobApplicationResponse,
@@ -15,10 +17,14 @@ from app.schemas.job import (
     JobHistoryStats,
     JobNotesUpdate,
     JobStatusUpdate,
+    MailingDraft,
+    MailingDraftUpdate,
+    MailingGenerateRequest,
 )
 from app.services.job_service import JobService
 from app.services.job_resume_service import JobResumeService
 from app.services.application_history_service import ApplicationHistoryService
+from app.services.mailing_service import MailingService
 from app.schemas.optimization_schema import OptimizationResponse
 
 router = APIRouter(prefix="/jobs", tags=["Job Applications"])
@@ -130,6 +136,20 @@ async def analyze_job_description(
     return await job_service.analyze_job(user_id, job_id)
 
 
+@router.post("/{job_id}/approved-skills", response_model=JobApplicationResponse)
+async def update_approved_missing_skills(
+    job_id: str,
+    body: ApprovedSkillsRequest,
+    current_user: dict = Depends(get_current_user),
+    job_service: JobService = Depends(get_job_service),
+):
+    """
+    Save candidate-approved missing skills for inclusion in job-specific resume optimization.
+    """
+    user_id = current_user["id"]
+    return await job_service.update_approved_skills(user_id, job_id, body.approved_skills)
+
+
 @router.post("/{job_id}/optimize", response_model=OptimizationResponse)
 async def optimize_resume_for_job(
     job_id: str,
@@ -217,6 +237,43 @@ async def download_job_resume_pdf(
             "Content-Length": str(len(pdf_bytes)),
         },
     )
+
+
+# ── Mailing System: Cold Outreach Drafts ─────────────────────────────────────
+
+@router.post("/{job_id}/mailing/generate", response_model=MailingDraft)
+async def generate_mailing_draft(
+    job_id: str,
+    req: Optional[MailingGenerateRequest] = None,
+    current_user: dict = Depends(get_current_user),
+    mailing_service: MailingService = Depends(get_mailing_service),
+):
+    """Generate a personalized, evidence-grounded cold outreach email for the hiring team."""
+    user_id = current_user["id"]
+    return await mailing_service.generate_mailing_draft(user_id, job_id, req)
+
+
+@router.get("/{job_id}/mailing", response_model=Optional[MailingDraft])
+async def get_mailing_draft(
+    job_id: str,
+    current_user: dict = Depends(get_current_user),
+    mailing_service: MailingService = Depends(get_mailing_service),
+):
+    """Retrieve the saved mailing draft for this job application if one exists."""
+    user_id = current_user["id"]
+    return await mailing_service.get_mailing_draft(user_id, job_id)
+
+
+@router.put("/{job_id}/mailing", response_model=MailingDraft)
+async def update_mailing_draft(
+    job_id: str,
+    update_data: MailingDraftUpdate,
+    current_user: dict = Depends(get_current_user),
+    mailing_service: MailingService = Depends(get_mailing_service),
+):
+    """Update editable fields (recipient, subject, body, status) on the mailing draft."""
+    user_id = current_user["id"]
+    return await mailing_service.update_mailing_draft(user_id, job_id, update_data)
 
 
 @router.delete("/{job_id}", response_model=MessageResponse)

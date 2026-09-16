@@ -206,3 +206,16 @@ async def test_8_cross_user_resume_isolation(async_client: AsyncClient, mock_mon
 
     pdf_b = await async_client.get("/api/v1/resume/base/pdf", headers=headers_b)
     assert pdf_b.status_code == 404
+
+
+def test_9_latex_compiler_worker_resolution():
+    from app.providers.pdf.latex_worker import LaTeXCompilerWorker
+    # Test worker initialization with default/configured setting
+    worker = LaTeXCompilerWorker()
+    assert hasattr(worker, "compiler")
+    assert isinstance(worker.is_available(), bool)
+
+    # Test explicit compiler resolution
+    worker_custom = LaTeXCompilerWorker(compiler_binary="non_existent_compiler_xyz")
+    assert worker_custom.compiler is None or worker_custom.is_available() is False
+

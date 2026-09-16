@@ -254,7 +254,7 @@ def test_renderer_contains_candidate_name():
 
 def test_renderer_summary_section():
     latex = render_summary("Expert Python developer with 10 years of experience.")
-    assert "\\section{Summary}" in latex
+    assert "\\section{Professional Summary}" in latex
     assert "Expert Python" in latex
 
 
@@ -306,8 +306,8 @@ def test_renderer_margin_injection():
     comp = get_compression_level(5)
     rd = transform_optimized_to_render_data(optimized, "test@x.com", comp)
     latex = render_job_latex_resume(rd)
-    # Level 5 margin is 0.36in
-    assert "0.36" in latex
+    # Level 5 margin is 0.30in
+    assert "0.30" in latex
 
 
 # ──────────────────────────────────────────────────────────────────────────────

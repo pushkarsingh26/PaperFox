@@ -9,6 +9,7 @@ import {
   Briefcase,
   Layers,
   FileCheck,
+  Mail,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { Badge } from "@/components/ui/Badge";
@@ -24,6 +25,7 @@ const navItems: NavItem[] = [
   { name: "Candidate Profile", href: "/dashboard/profile", icon: User },
   { name: "Job Workspace", href: "/dashboard/jobs", icon: Briefcase },
   { name: "Applications Pipeline", href: "/dashboard/applications", icon: Layers },
+  { name: "Mailing System", href: "/dashboard/mailing", icon: Mail },
   { name: "LaTeX Documents", href: "/dashboard/resume", icon: FileCheck },
 ];
 
@@ -69,11 +71,11 @@ export const Sidebar: React.FC = () => {
 
       <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3.5 space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-300">Phase 8 Ready</span>
-          <Badge variant="success">Active</Badge>
+          <span className="text-xs font-semibold text-slate-300">PaperFox Engine</span>
+          <Badge variant="success">Online</Badge>
         </div>
         <p className="text-xs text-slate-400 leading-relaxed">
-          Production Security, LaTeX Compilers & ATS Validation Pipelines active.
+          LaTeX Compiler, AI Intelligence & Cold Outreach Ready.
         </p>
       </div>
     </aside>

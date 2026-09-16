@@ -243,7 +243,7 @@ export default function JobResumePanel({ job, onRenderComplete }: JobResumePanel
         {/* Not yet optimized warning */}
         {!canGenerate && (
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 p-4 text-sm text-amber-300">
-            <p className="font-medium mb-1">Phase 5 Optimization Required</p>
+            <p className="font-medium mb-1">Resume Optimization Required</p>
             <p className="text-xs text-amber-300/70">
               Run &quot;Optimize Resume&quot; above to generate the job-specific
               optimization snapshot. Resume generation requires a completed
@@ -388,7 +388,7 @@ export default function JobResumePanel({ job, onRenderComplete }: JobResumePanel
         {/* Disclaimer */}
         <p className="text-[10px] text-white/25 leading-relaxed">
           Resume content is derived exclusively from your Master Candidate
-          Profile and the Phase 5 optimization snapshot. Layout and formatting
+          Profile and the optimization snapshot. Layout and formatting
           are determined by PaperFox&apos;s ATS-optimised LaTeX renderer — no AI
           is involved in the PDF generation step.
         </p>

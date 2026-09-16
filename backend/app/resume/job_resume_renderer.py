@@ -6,9 +6,10 @@ All section render functions consume plain Python dicts (not Pydantic models) so
 they are decoupled from schema changes and easily testable in isolation.
 """
 import os
+import re
 from typing import Any, Dict, List
 
-from app.resume.escaping import escape_latex, format_latex_url
+from app.resume.escaping import escape_latex, format_latex_url, strip_latex_bold
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "templates", "job_resume.tex")
 
@@ -33,7 +34,7 @@ def render_header(header: Dict[str, Any]) -> tuple[str, str]:
     if header.get("portfolio_url"):
         parts.append(format_latex_url(header["portfolio_url"], "Portfolio"))
 
-    contact_line = " \\ \\textbullet\\ \\ ".join(parts)
+    contact_line = " $\\bullet$ ".join(parts)
     return full_name, contact_line
 
 
@@ -41,14 +42,14 @@ def render_summary(summary: str) -> str:
     """Render the professional summary section."""
     if not summary or not summary.strip():
         return ""
-    lines = ["\\section{Summary}"]
-    lines.append(escape_latex(summary.strip()))
-    lines.append("\\vspace{2pt}")
+    lines = ["\\section{Professional Summary}", "\\small"]
+    lines.append(escape_latex(summary.strip()) + " \\par")
+    lines.append("\\vspace{1pt}")
     return "\n".join(lines)
 
 
 def render_education(education_list: List[Dict[str, Any]]) -> str:
-    """Render the Education section."""
+    """Render the Education section matching reference compact two-line structure."""
     if not education_list:
         return ""
 
@@ -65,12 +66,14 @@ def render_education(education_list: List[Dict[str, Any]]) -> str:
         dates = f"{start} -- {end}" if start else end
         loc_str = f" \\hfill {loc}" if loc else ""
         grade_str = f" (GPA/Grade: {grade})" if grade else ""
+        deg_field = f"{degree} in {field}" if (degree and field) else (degree or field)
 
         lines.append(f"\\noindent \\textbf{{{inst}}}{loc_str} \\\\")
         lines.append(
-            f"\\textit{{{degree} in {field}}}{grade_str} \\hfill \\textit{{{dates}}} \\\\[2pt]"
+            f"\\textit{{\\small {deg_field}}}{grade_str} \\hfill \\textit{{\\small {dates}}} \\par"
         )
 
+    lines.append("\\vspace{1pt}")
     return "\n".join(lines)
 
 
@@ -94,24 +97,26 @@ def render_experience_items(title: str, items: List[Dict[str, Any]]) -> str:
         loc_str = f" \\hfill {loc}" if loc else ""
 
         lines.append(f"\\noindent \\textbf{{{role}}} -- \\textbf{{{comp}}}{loc_str} \\\\")
-        lines.append(f"\\textit{{{dates}}} \\\\[1pt]")
+        lines.append(f"\\textit{{\\small {dates}}} \\par")
 
         bullet_items = responsibilities + achievements
         if bullet_items or techs:
+            lines.append("\\vspace{-2pt}")
             lines.append("\\begin{itemize}")
             for bullet in bullet_items:
-                lines.append(f"  \\item {escape_latex(bullet)}")
+                clean_bullet = strip_latex_bold(bullet)
+                lines.append(f"  \\item \\small {escape_latex(clean_bullet)}")
             if techs:
                 tech_str = ", ".join([escape_latex(t) for t in techs])
-                lines.append(f"  \\item \\textbf{{Technologies:}} {tech_str}")
+                lines.append(f"  \\item \\small \\textit{{{tech_str}}}")
             lines.append("\\end{itemize}")
-        lines.append("\\vspace{3pt}")
+        lines.append("\\vspace{2pt}")
 
     return "\n".join(lines)
 
 
 def render_projects(projects: List[Dict[str, Any]]) -> str:
-    """Render the Projects section from optimized project render dicts."""
+    """Render the Projects section from optimized project render dicts matching Pushkar reference format."""
     if not projects:
         return ""
 
@@ -121,32 +126,41 @@ def render_projects(projects: List[Dict[str, Any]]) -> str:
         techs = proj.get("technologies", [])
         features = proj.get("features", [])   # optimized bullets
 
-        urls: List[str] = []
-        if proj.get("project_url"):
-            urls.append(format_latex_url(proj["project_url"], "Demo"))
-        if proj.get("github_url"):
-            urls.append(format_latex_url(proj["github_url"], "GitHub"))
-        if proj.get("repository_url"):
-            urls.append(format_latex_url(proj["repository_url"], "Repository"))
+        repo_url = proj.get("github_url") or proj.get("repository_url")
+        demo_url = proj.get("project_url")
 
-        url_str = f" ( {', '.join(urls)} )" if urls else ""
-        lines.append(f"\\noindent \\textbf{{{name}}}{url_str} \\\\")
+        code_link = ""
+        if repo_url:
+            code_link = format_latex_url(repo_url, "Code")
+            if demo_url and demo_url.strip() != repo_url.strip():
+                code_link += f" $\\bullet$ {format_latex_url(demo_url, 'Demo')}"
+        elif demo_url:
+            code_link = format_latex_url(demo_url, "Demo")
 
-        if techs or features:
+        if code_link:
+            lines.append(f"\\noindent \\textbf{{{name}}} \\hfill {{{code_link}}} \\\\")
+        else:
+            lines.append(f"\\noindent \\textbf{{{name}}} \\\\")
+
+        if techs:
+            tech_str = ", ".join([escape_latex(t) for t in techs])
+            lines.append(f"\\textit{{\\small {tech_str}}} \\par")
+            lines.append("\\vspace{-2pt}")
+
+        if features:
             lines.append("\\begin{itemize}")
-            if techs:
-                tech_str = ", ".join([escape_latex(t) for t in techs])
-                lines.append(f"  \\item \\textbf{{Technologies:}} {tech_str}")
             for feat in features:
-                lines.append(f"  \\item {escape_latex(feat)}")
+                clean_feat = strip_latex_bold(feat)
+                lines.append(f"  \\item \\small {escape_latex(clean_feat)}")
             lines.append("\\end{itemize}")
-        lines.append("\\vspace{3pt}")
+
+        lines.append("\\vspace{2pt}")
 
     return "\n".join(lines)
 
 
 def render_skills(skills: List[Dict[str, Any]]) -> str:
-    """Render Technical Skills section from flat {category, name} skill dicts."""
+    """Render Technical Skills section as compact category lines matching reference layout."""
     if not skills:
         return ""
 
@@ -156,36 +170,45 @@ def render_skills(skills: List[Dict[str, Any]]) -> str:
         name = escape_latex(s.get("name", ""))
         categories.setdefault(cat, []).append(name)
 
-    lines = ["\\section{Technical Skills}"]
-    lines.append("\\begin{itemize}")
+    lines = ["\\section{Technical Skills}", "\\small"]
+    cat_lines: List[str] = []
     for cat, item_list in categories.items():
         cat_escaped = escape_latex(cat)
         skills_str = ", ".join(item_list)
-        lines.append(f"  \\item \\textbf{{{cat_escaped}:}} {skills_str}")
-    lines.append("\\end{itemize}")
-    lines.append("\\vspace{3pt}")
+        cat_lines.append(f"\\textbf{{{cat_escaped}:}} {skills_str}")
+
+    if cat_lines:
+        lines.append("\\noindent " + " \\\\\n".join(cat_lines))
+    lines.append("\\par\\vspace{1pt}")
 
     return "\n".join(lines)
 
 
 def render_certifications(certifications: List[Dict[str, Any]]) -> str:
-    """Render Certifications section."""
+    """Render Certifications section displaying only Issuer, Name, and Year without credential IDs or URLs."""
     if not certifications:
         return ""
 
-    lines = ["\\section{Certifications}"]
-    lines.append("\\begin{itemize}")
+    lines = ["\\section{Certifications}", "\\small"]
+    cert_lines: List[str] = []
     for cert in certifications:
         name = escape_latex(cert.get("name", ""))
         issuer = escape_latex(cert.get("issuer", ""))
-        date = escape_latex(cert.get("issue_date", ""))
-        url = cert.get("credential_url")
+        raw_date = str(cert.get("issue_date") or cert.get("year") or cert.get("date") or "").strip()
 
-        date_str = f" ({date})" if date else ""
-        url_str = f" -- {format_latex_url(url, 'Credential')}" if url else ""
+        # Extract 4-digit year if present (e.g. "2026-03-01" -> "2026", "March 2026" -> "2026")
+        year_match = re.search(r"\b(19\d\d|20\d\d)\b", raw_date)
+        year_str = escape_latex(year_match.group(1)) if year_match else escape_latex(raw_date)
+        date_str = f" ({year_str})" if year_str else ""
 
-        lines.append(f"  \\item \\textbf{{{name}}} -- {issuer}{date_str}{url_str}")
-    lines.append("\\end{itemize}")
+        if issuer:
+            cert_lines.append(f"\\textbf{{{issuer}:}} {name}{date_str}")
+        else:
+            cert_lines.append(f"\\textbf{{{name}}}{date_str}")
+
+    if cert_lines:
+        lines.append("\\noindent " + " \\\\\n".join(cert_lines))
+    lines.append("\\par\\vspace{1pt}")
 
     return "\n".join(lines)
 
@@ -223,10 +246,10 @@ def render_job_latex_resume(render_data: Dict[str, Any]) -> str:
     certs_sec = render_certifications(render_data.get("certifications", []))
 
     # Margin and spacing values from compression level config
-    margin_top = str(render_data.get("margin_top", 0.50))
-    margin_bottom = str(render_data.get("margin_bottom", 0.50))
-    margin_left = str(render_data.get("margin_left", 0.50))
-    margin_right = str(render_data.get("margin_right", 0.50))
+    margin_top = f"{float(render_data.get('margin_top', 0.38)):.2f}"
+    margin_bottom = f"{float(render_data.get('margin_bottom', 0.38)):.2f}"
+    margin_left = f"{float(render_data.get('margin_left', 0.40)):.2f}"
+    margin_right = f"{float(render_data.get('margin_right', 0.40)):.2f}"
     section_spacing = str(render_data.get("section_before_spacing", 7))
 
     section_map = {
@@ -241,7 +264,7 @@ def render_job_latex_resume(render_data: Dict[str, Any]) -> str:
     if exp_sec and int_sec:
         section_map["experience"] = f"{exp_sec}\n\n{int_sec}"
 
-    default_job_order = ["summary", "education", "experience", "projects", "skills", "certifications"]
+    default_job_order = ["summary", "skills", "projects", "experience", "education", "certifications"]
     section_order = render_data.get("section_order") or default_job_order
     order = [s for s in section_order if s in section_map]
     for def_sec in default_job_order:

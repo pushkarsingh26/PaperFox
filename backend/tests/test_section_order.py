@@ -219,7 +219,7 @@ def test_job_resume_custom_section_ordering():
 
     latex = render_job_latex_resume(render_data)
 
-    sum_idx = latex.find("\\section{Summary}")
+    sum_idx = latex.find("\\section{Professional Summary}")
     proj_idx = latex.find("\\section{Projects}")
     skills_idx = latex.find("\\section{Technical Skills}")
     edu_idx = latex.find("\\section{Education}")

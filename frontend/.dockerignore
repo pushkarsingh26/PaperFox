@@ -1,0 +1,12 @@
+# PaperFox Frontend — .dockerignore
+.next/
+node_modules/
+.env
+.env.*
+.env.local
+*.tsbuildinfo
+.git/
+.gitignore
+.vscode/
+.idea/
+README.md

@@ -1,0 +1,63 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# PaperFox — Docker Compose (Production)
+#
+# Services:
+#   backend   — FastAPI + pdflatex (TeX Live inside image)
+#   frontend  — Next.js (communicates with backend via NEXT_PUBLIC_API_URL)
+#
+# Prerequisites:
+#   1. Copy backend/.env.example  → backend/.env  and fill in real values.
+#   2. Set NEXT_PUBLIC_API_URL below to match your actual backend domain.
+#   3. Run: docker compose up -d --build
+#
+# Notes:
+#   • No LaTeX installation is required on the host machine.
+#   • The backend image installs TeX Live during docker build.
+#   • PDF artifacts are stored in the named volume "pdf_storage".
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      # LaTeX compiler is on PATH inside the container — no explicit path needed
+      LATEX_COMPILER: pdflatex
+      LATEX_COMPILER_PATH: ""
+    volumes:
+      # Persist PDF artifacts across container restarts
+      - pdf_storage:/app/storage_data/pdf
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Must match the public URL of the backend (domain or IP accessible from browsers)
+        # Example for local docker compose: http://localhost:8000/api/v1
+        # Example for production: https://api.yourdomain.com/api/v1
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  pdf_storage:
+    driver: local

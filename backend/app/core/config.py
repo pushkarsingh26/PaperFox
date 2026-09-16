@@ -27,6 +27,16 @@ class Settings(BaseSettings):
     
     ALLOWED_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
+    # Document Engine Configuration
+    # Name or PATH-resolvable command for the LaTeX compiler (pdflatex, xelatex)
+    LATEX_COMPILER: str = "pdflatex"
+    # Optional: explicit full path to the compiler binary.
+    # Use when the compiler is installed but NOT on the backend process PATH.
+    # Example: C:\Users\you\AppData\Local\Programs\MiKTeX\miktex\bin\x64\pdflatex.exe
+    # Example: /usr/bin/pdflatex
+    LATEX_COMPILER_PATH: str = ""
+
+
     # Rate Limiting Configuration
     RATE_LIMITING_ENABLED: bool = True
     RATE_LIMIT_AUTH_PER_MINUTE: int = 10

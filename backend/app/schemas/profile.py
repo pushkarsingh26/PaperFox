@@ -13,10 +13,10 @@ SUPPORTED_RESUME_SECTIONS = [
 
 DEFAULT_SECTION_ORDER = [
     "summary",
-    "education",
-    "experience",
-    "projects",
     "skills",
+    "projects",
+    "experience",
+    "education",
     "certifications",
 ]
 

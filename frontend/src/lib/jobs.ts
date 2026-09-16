@@ -166,6 +166,53 @@ export interface JobHistoryStats {
 
 // ── Job Application ──────────────────────────────────────────────────────────
 
+export interface SuggestedMissingSkill {
+  skill: string;
+  name?: string;
+  category?: string;
+  importance: "Critical" | "High" | "Medium" | "Low" | string;
+  reason: string;
+  importance_reason?: string;
+  is_critical?: boolean;
+}
+
+export interface ConfirmedSkill {
+  skill: string;
+  source: string;
+  confirmed_at?: string;
+}
+
+export interface MailingDraft {
+  job_id: string;
+  recipient_name?: string;
+  recipient_email?: string;
+  recipient_role?: string;
+  subject: string;
+  subject_options: string[];
+  body: string;
+  short_body?: string;
+  selected_evidence: string[];
+  status: "draft" | "ready" | "sent" | string;
+  generated_at?: string;
+  updated_at?: string;
+}
+
+export interface MailingGenerateRequest {
+  recipient_name?: string;
+  recipient_email?: string;
+  recipient_role?: string;
+}
+
+export interface MailingDraftUpdate {
+  recipient_name?: string;
+  recipient_email?: string;
+  recipient_role?: string;
+  subject?: string;
+  body?: string;
+  short_body?: string;
+  status?: string;
+}
+
 export interface JobApplication {
   id: string;
   user_id: string;
@@ -175,6 +222,9 @@ export interface JobApplication {
   job_url?: string;
   location?: string;
   requirements?: JobRequirements;
+  suggested_missing_skills?: SuggestedMissingSkill[];
+  approved_additional_skills?: string[];
+  confirmed_skills?: ConfirmedSkill[];
   analysis_provider?: string;
   analysis_model?: string;
   is_analyzed: boolean;
@@ -182,6 +232,7 @@ export interface JobApplication {
   is_optimized?: boolean;
   job_resume_artifact?: JobResumeArtifact;
   is_resume_generated?: boolean;
+  mailing_draft?: MailingDraft;
   application_status?: ApplicationStatus | string;
   notes?: string;
   status_updated_at?: string;
@@ -216,6 +267,16 @@ export async function getJobApi(jobId: string): Promise<JobApplication> {
 
 export async function analyzeJobApi(jobId: string): Promise<JobApplication> {
   const response = await api.post<JobApplication>(`/jobs/${jobId}/analyze`);
+  return response.data;
+}
+
+export async function updateApprovedSkillsApi(
+  jobId: string,
+  approvedSkills: string[]
+): Promise<JobApplication> {
+  const response = await api.post<JobApplication>(`/jobs/${jobId}/approved-skills`, {
+    approved_skills: approvedSkills,
+  });
   return response.data;
 }
 
@@ -288,3 +349,29 @@ export async function getJobHistoryStatsApi(): Promise<JobHistoryStats> {
 export async function deleteJobApi(jobId: string): Promise<void> {
   await api.delete(`/jobs/${jobId}`);
 }
+
+// ── Mailing System API functions ───────────────────────────────────────────
+
+export async function generateMailingDraftApi(
+  jobId: string,
+  req?: MailingGenerateRequest
+): Promise<MailingDraft> {
+  const response = await api.post<MailingDraft>(`/jobs/${jobId}/mailing/generate`, req || {});
+  return response.data;
+}
+
+export async function getMailingDraftApi(
+  jobId: string
+): Promise<MailingDraft | null> {
+  const response = await api.get<MailingDraft | null>(`/jobs/${jobId}/mailing`);
+  return response.data;
+}
+
+export async function updateMailingDraftApi(
+  jobId: string,
+  data: MailingDraftUpdate
+): Promise<MailingDraft> {
+  const response = await api.put<MailingDraft>(`/jobs/${jobId}/mailing`, data);
+  return response.data;
+}
+

@@ -102,6 +102,69 @@ class JobResumeArtifact(BaseModel):
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class SuggestedMissingSkill(BaseModel):
+    skill: str = Field(default="", description="Skill name")
+    name: Optional[str] = Field(default=None, description="Legacy alias for skill name")
+    category: str = Field(default="Other", description="Skill category")
+    importance: str = Field(default="High", description="Critical | High | Medium | Low")
+    reason: str = Field(default="", description="Short role-specific reason based on JD")
+    importance_reason: Optional[str] = Field(default=None, description="Legacy alias for reason")
+    is_critical: bool = True
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.skill and self.name:
+            self.skill = self.name
+        elif not self.name and self.skill:
+            self.name = self.skill
+        if not self.reason and self.importance_reason:
+            self.reason = self.importance_reason
+        elif not self.importance_reason and self.reason:
+            self.importance_reason = self.reason
+        if self.importance == "Critical":
+            self.is_critical = True
+
+
+class ConfirmedSkill(BaseModel):
+    skill: str
+    source: str = "candidate_confirmed"
+    confirmed_at: Optional[datetime] = None
+
+
+class ApprovedSkillsRequest(BaseModel):
+    approved_skills: List[str] = Field(default_factory=list, description="List of skill names approved by candidate")
+
+
+class MailingDraft(BaseModel):
+    job_id: str
+    recipient_name: Optional[str] = None
+    recipient_email: Optional[str] = None
+    recipient_role: Optional[str] = None
+    subject: str = ""
+    subject_options: List[str] = Field(default_factory=list)
+    body: str = ""
+    short_body: Optional[str] = None
+    selected_evidence: List[str] = Field(default_factory=list)
+    status: str = Field(default="draft", description="draft|ready|sent")
+    generated_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class MailingGenerateRequest(BaseModel):
+    recipient_name: Optional[str] = None
+    recipient_email: Optional[str] = None
+    recipient_role: Optional[str] = None
+
+
+class MailingDraftUpdate(BaseModel):
+    recipient_name: Optional[str] = None
+    recipient_email: Optional[str] = None
+    recipient_role: Optional[str] = None
+    subject: Optional[str] = None
+    body: Optional[str] = None
+    short_body: Optional[str] = None
+    status: Optional[str] = None
+
+
 class JobApplicationResponse(BaseModel):
     id: str = Field(..., description="Unique job application ID")
     user_id: str = Field(..., description="Owner user ID")
@@ -111,6 +174,9 @@ class JobApplicationResponse(BaseModel):
     job_url: Optional[str] = None
     location: Optional[str] = None
     requirements: Optional[JobRequirements] = None
+    suggested_missing_skills: List[SuggestedMissingSkill] = Field(default_factory=list)
+    approved_additional_skills: List[str] = Field(default_factory=list)
+    confirmed_skills: List[ConfirmedSkill] = Field(default_factory=list)
     analysis_provider: Optional[str] = None
     analysis_model: Optional[str] = None
     is_analyzed: bool = False
@@ -118,7 +184,8 @@ class JobApplicationResponse(BaseModel):
     is_optimized: bool = False
     job_resume_artifact: Optional[Dict[str, Any]] = None
     is_resume_generated: bool = False
-    # Phase 7: application lifecycle
+    mailing_draft: Optional[MailingDraft] = None
+    # Application lifecycle
     application_status: str = Field(default="draft", description="draft|applied|interview|rejected|offer|withdrawn")
     notes: Optional[str] = None
     status_updated_at: Optional[datetime] = None

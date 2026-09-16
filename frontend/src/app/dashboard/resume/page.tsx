@@ -14,15 +14,22 @@ import { ResumeArtifact, ResumeGenerateResponse } from "@/types/resume";
 import { SectionOrderEditor } from "@/components/resume/SectionOrderEditor";
 import {
   FileText,
-  Sparkles,
   Download,
   RefreshCw,
   AlertCircle,
   CheckCircle2,
   AlertTriangle,
-  Loader2,
   Code2,
+  Settings,
 } from "lucide-react";
+
+interface CompilerStatus {
+  compiler_available: boolean;
+  compiler_binary: string | null;
+  configured_name: string;
+  configured_path: string | null;
+  description: string;
+}
 
 export default function BaseResumePage() {
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
@@ -32,14 +39,15 @@ export default function BaseResumePage() {
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [compilerStatus, setCompilerStatus] = useState<CompilerStatus | null>(null);
 
-  // Load candidate profile & base resume artifact on mount
+  // Load candidate profile, artifact, and compiler status on mount
   useEffect(() => {
     const loadData = async () => {
       try {
         const profRes = await api.get<CandidateProfile>("/profile");
         setProfile(profRes.data);
-      } catch (err) {
+      } catch (_err) {
         // Candidate profile not created yet
       }
 
@@ -49,11 +57,19 @@ export default function BaseResumePage() {
         if (artRes.data.pdf_storage_reference) {
           await loadPdfBlob();
         }
-      } catch (err) {
+      } catch (_err) {
         // Base resume artifact not generated yet
-      } finally {
-        setLoading(false);
       }
+
+      // Fetch compiler status for diagnostic display
+      try {
+        const csRes = await api.get<CompilerStatus>("/resume/compiler-status");
+        setCompilerStatus(csRes.data);
+      } catch (_err) {
+        // Not critical — ignore
+      }
+
+      setLoading(false);
     };
 
     loadData();
@@ -67,8 +83,7 @@ export default function BaseResumePage() {
       const blob = new Blob([response.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       setPdfBlobUrl(url);
-    } catch (err) {
-      // PDF binary not compiled or unavailable
+    } catch (_err) {
       setPdfBlobUrl(null);
     }
   };
@@ -90,6 +105,12 @@ export default function BaseResumePage() {
       } else {
         setPdfBlobUrl(null);
       }
+
+      // Re-fetch compiler status after generation attempt
+      try {
+        const csRes = await api.get<CompilerStatus>("/resume/compiler-status");
+        setCompilerStatus(csRes.data);
+      } catch (_err) {}
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       setError(typeof detail === "string" ? detail : "Failed to generate base resume.");
@@ -108,6 +129,11 @@ export default function BaseResumePage() {
     document.body.removeChild(a);
   };
 
+  // Compiler state derived from both artifact status and live compiler-status API
+  const compilerUnavailable =
+    artifact?.status === "compiler_unavailable" ||
+    (compilerStatus !== null && !compilerStatus.compiler_available);
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-slate-950 flex flex-col selection:bg-amber-500/30 selection:text-amber-200">
@@ -116,7 +142,7 @@ export default function BaseResumePage() {
         <div className="flex-1 flex">
           <Sidebar />
 
-          <main className="flex-1 p-6 md:p-10 max-w-6xl space-y-8">
+          <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 space-y-8">
             {/* Header Banner */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/60 border border-slate-800 p-6 rounded-xl">
               <div className="space-y-1">
@@ -180,7 +206,33 @@ export default function BaseResumePage() {
               </Card>
             )}
 
-            {/* Status Messages */}
+            {/* Server-side compiler unavailable — backend/infrastructure notice only */}
+            {!loading && compilerUnavailable && (
+              <Card className="bg-slate-900/60 border border-slate-700 p-5 space-y-3">
+                <div className="flex items-start gap-3">
+                  <Settings className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-slate-300">
+                      Server PDF Compilation Unavailable
+                    </p>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      The backend server does not have a LaTeX compiler available. Your resume
+                      LaTeX source has been generated and saved successfully. PDF compilation will
+                      work once the backend is deployed with TeX Live included (see{" "}
+                      <code className="bg-slate-800 px-1 rounded text-slate-300">backend/Dockerfile</code>
+                      ).
+                    </p>
+                    {compilerStatus?.description && (
+                      <p className="text-[11px] text-slate-600 font-mono mt-1 leading-relaxed">
+                        {compilerStatus.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Status / error messages */}
             {error && (
               <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start space-x-3 text-xs text-red-400">
                 <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
@@ -188,7 +240,7 @@ export default function BaseResumePage() {
               </div>
             )}
 
-            {statusMessage && (
+            {statusMessage && !compilerUnavailable && (
               <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-xl flex items-start space-x-3 text-xs text-slate-200">
                 <CheckCircle2 className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                 <span>{statusMessage}</span>
@@ -246,7 +298,7 @@ export default function BaseResumePage() {
                     </div>
                   ) : (
                     <p className="text-xs text-slate-500 italic">
-                      No base resume compiled yet. Click "Generate Base Resume" to start the LaTeX compilation engine.
+                      No base resume compiled yet. Click &quot;Generate Base Resume&quot; to start the LaTeX compilation engine.
                     </p>
                   )}
 
@@ -263,14 +315,45 @@ export default function BaseResumePage() {
                   )}
                 </Card>
 
-                {/* Compiler System Info */}
+                {/* Compiler status indicator */}
                 <Card className="p-6 space-y-3 border-slate-800 bg-slate-900/40 text-xs">
                   <h4 className="font-semibold text-slate-200 flex items-center gap-1.5">
-                    <Code2 className="w-4 h-4 text-amber-500" /> Server TeX Requirement
+                    <Code2 className="w-4 h-4 text-amber-500" /> Server TeX Status
                   </h4>
-                  <p className="text-slate-400 leading-relaxed">
-                    Binary PDF compilation requires local <code className="text-amber-400">pdflatex</code> or <code className="text-amber-400">xelatex</code> installed on the server host environment (e.g., TeX Live or MiKTeX).
-                  </p>
+                  {compilerStatus ? (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                            compilerStatus.compiler_available
+                              ? "bg-emerald-400"
+                              : "bg-slate-600"
+                          }`}
+                        />
+                        <span
+                          className={
+                            compilerStatus.compiler_available
+                              ? "text-emerald-400 font-semibold"
+                              : "text-slate-500 font-semibold"
+                          }
+                        >
+                          {compilerStatus.compiler_available
+                            ? "Compiler Available"
+                            : "Compiler Not Configured on Server"}
+                        </span>
+                      </div>
+                      {compilerStatus.compiler_available && compilerStatus.compiler_binary && (
+                        <p className="text-slate-600 font-mono text-[10px] break-all">
+                          {compilerStatus.compiler_binary}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-slate-700 flex-shrink-0" />
+                      <span className="text-slate-600">Checking…</span>
+                    </div>
+                  )}
                 </Card>
               </div>
 
@@ -299,7 +382,9 @@ export default function BaseResumePage() {
                         <h4 className="text-sm font-semibold text-slate-300">No PDF Preview Available</h4>
                         <p className="text-xs text-slate-500 mt-1 max-w-sm">
                           {artifact?.status === "compiler_unavailable"
-                            ? "Server TeX compiler is not installed. Install pdflatex on the host system to view binary PDFs."
+                            ? "The server-side LaTeX compiler is not available in this environment. PDF compilation requires the backend to be deployed with TeX Live."
+                            : artifact?.status === "error"
+                            ? "LaTeX compilation failed. Check the error details and try regenerating."
                             : "Click 'Generate Base Resume' above to run the LaTeX engine."}
                         </p>
                       </div>

@@ -1,12 +1,12 @@
-\documentclass[10pt,letterpaper]{article}
+\documentclass[a4paper,11pt]{article}
 \usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
+\input{glyphtounicode}
+\pdfgentounicode=1
 \usepackage[top={{MARGIN_TOP}}in,bottom={{MARGIN_BOTTOM}}in,left={{MARGIN_LEFT}}in,right={{MARGIN_RIGHT}}in]{geometry}
 \usepackage{hyperref}
 \usepackage{enumitem}
 \usepackage{titlesec}
 \usepackage{xcolor}
-\usepackage{microtype}
 
 \hypersetup{
     colorlinks=true,
@@ -17,9 +17,9 @@
 }
 
 \pagestyle{empty}
-\titleformat{\section}{\normalsize\bfseries\uppercase}{}{0pt}{}[\titlerule]
-\titlespacing*{\section}{0pt}{{{SECTION_BEFORE_SPACING}}pt}{4pt}
-\setlist[itemize]{noitemsep, topsep=1pt, leftmargin=1.2em, itemsep=0pt, parsep=0pt}
+\titleformat{\section}{\large\scshape\raggedright}{}{0pt}{}[\titlerule]
+\titlespacing*{\section}{0pt}{{{SECTION_BEFORE_SPACING}}pt}{2.5pt}
+\setlist[itemize]{leftmargin=1.1em, itemsep=0.8pt, parsep=0pt, topsep=1.5pt, partopsep=0pt}
 
 % Compact paragraph spacing
 \setlength{\parskip}{0pt}
@@ -29,7 +29,7 @@
 
 % Header Section
 \begin{center}
-    {\Large \bfseries {{FULL_NAME}}} \\[3pt]
+    {\Huge \scshape {{FULL_NAME}}} \\[3pt]
     \small {{CONTACT_LINE}}
 \end{center}
 

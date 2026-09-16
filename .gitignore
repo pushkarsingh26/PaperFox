@@ -33,3 +33,4 @@ storage_data/
 Thumbs.db
 scratch/
 backend/scratch/
+*.pdf

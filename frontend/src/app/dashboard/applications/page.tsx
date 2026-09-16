@@ -157,7 +157,7 @@ export default function ApplicationsHistoryPage() {
         <div className="flex-1 flex">
           <Sidebar />
 
-          <main className="flex-1 p-6 md:p-8 max-w-7xl">
+          <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
               <div>

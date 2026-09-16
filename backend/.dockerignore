@@ -1,0 +1,35 @@
+# PaperFox Backend — .dockerignore
+# Excludes files that should not be copied into the production image
+
+# Python cache / test artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Development environment
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+
+# Secrets — never copy real .env into the image
+.env
+.env.*
+
+# Local artifact storage (mounted as a volume in production)
+storage_data/
+
+# Development-only scratch files
+scratch/
+
+# Git history
+.git/
+.gitignore
+
+# IDE configs
+.vscode/
+.idea/

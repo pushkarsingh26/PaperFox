@@ -94,7 +94,7 @@ class JobResumeService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
-                    "Job-specific resume optimization (Phase 5) must be completed before "
+                    "Job-specific resume optimization must be completed before "
                     "generating a resume. Run optimization first."
                 ),
             )

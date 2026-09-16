@@ -26,11 +26,11 @@ class CompressionLevel:
 
 
 _LEVELS: list[CompressionLevel] = [
-    # Level 0 — Full fidelity, standard margins
+    # Level 0 — Full fidelity, reference A4 page density
     CompressionLevel(
         level=0,
-        margin_top=0.50, margin_bottom=0.50, margin_left=0.50, margin_right=0.50,
-        section_before_spacing=7,
+        margin_top=0.38, margin_bottom=0.38, margin_left=0.40, margin_right=0.40,
+        section_before_spacing=4,
         max_project_bullets=0,   # 0 = unlimited
         max_exp_bullets=0,
         max_internship_bullets=0,
@@ -41,8 +41,8 @@ _LEVELS: list[CompressionLevel] = [
     # Level 1 — Slightly tighter margins + spacing
     CompressionLevel(
         level=1,
-        margin_top=0.45, margin_bottom=0.45, margin_left=0.48, margin_right=0.48,
-        section_before_spacing=5,
+        margin_top=0.36, margin_bottom=0.36, margin_left=0.38, margin_right=0.38,
+        section_before_spacing=3,
         max_project_bullets=0,
         max_exp_bullets=0,
         max_internship_bullets=0,
@@ -50,11 +50,11 @@ _LEVELS: list[CompressionLevel] = [
         include_certifications=True,
         summary_max_chars=0,
     ),
-    # Level 2 — Tight margins + cap project bullets
+    # Level 2 — Tight margins + cap project bullets to 3
     CompressionLevel(
         level=2,
-        margin_top=0.42, margin_bottom=0.42, margin_left=0.45, margin_right=0.45,
-        section_before_spacing=4,
+        margin_top=0.35, margin_bottom=0.35, margin_left=0.38, margin_right=0.38,
+        section_before_spacing=3,
         max_project_bullets=3,
         max_exp_bullets=0,
         max_internship_bullets=0,
@@ -62,41 +62,41 @@ _LEVELS: list[CompressionLevel] = [
         include_certifications=True,
         summary_max_chars=0,
     ),
-    # Level 3 — Cap all experience/internship bullets
+    # Level 3 — Cap all experience/internship bullets + summary limit
     CompressionLevel(
         level=3,
-        margin_top=0.40, margin_bottom=0.40, margin_left=0.43, margin_right=0.43,
-        section_before_spacing=4,
+        margin_top=0.34, margin_bottom=0.34, margin_left=0.36, margin_right=0.36,
+        section_before_spacing=2,
         max_project_bullets=3,
         max_exp_bullets=3,
         max_internship_bullets=3,
         max_projects=0,
         include_certifications=True,
-        summary_max_chars=0,
+        summary_max_chars=400,
     ),
     # Level 4 — Limit to top-3 projects by relevance score
     CompressionLevel(
         level=4,
-        margin_top=0.38, margin_bottom=0.38, margin_left=0.42, margin_right=0.42,
-        section_before_spacing=3,
+        margin_top=0.32, margin_bottom=0.32, margin_left=0.35, margin_right=0.35,
+        section_before_spacing=2,
         max_project_bullets=3,
         max_exp_bullets=3,
         max_internship_bullets=3,
         max_projects=3,
         include_certifications=True,
-        summary_max_chars=0,
+        summary_max_chars=350,
     ),
-    # Level 5 — Maximum compression: top-2 projects, drop certifications
+    # Level 5 — Maximum compression: top-2 projects, summary cap 300
     CompressionLevel(
         level=5,
-        margin_top=0.36, margin_bottom=0.36, margin_left=0.40, margin_right=0.40,
-        section_before_spacing=3,
+        margin_top=0.30, margin_bottom=0.30, margin_left=0.34, margin_right=0.34,
+        section_before_spacing=2,
         max_project_bullets=2,
-        max_exp_bullets=3,
+        max_exp_bullets=2,
         max_internship_bullets=2,
         max_projects=2,
         include_certifications=False,
-        summary_max_chars=350,
+        summary_max_chars=300,
     ),
 ]
 

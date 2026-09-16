@@ -149,4 +149,5 @@ def transform_optimized_to_render_data(
         "projects": projects,
         "skills": skills,
         "certifications": certifications,
+        "section_order": getattr(optimized, "section_order", None),
     }

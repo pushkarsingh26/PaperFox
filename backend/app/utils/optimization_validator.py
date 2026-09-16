@@ -94,26 +94,34 @@ def validate_optimized_data(
     original_profile: Dict[str, Any],
     structured_evidence_map: Optional[Dict[str, StructuredProjectEvidence]],
     optimized_data: OptimizedResumeData,
-    job_requirements: Optional[Dict[str, Any]] = None
+    job_requirements: Optional[Dict[str, Any]] = None,
+    approved_additional_skills: Optional[List[str]] = None
 ) -> None:
     """
     Deterministically validates that AI optimization output does NOT violate factual grounding rules.
+    Allows candidate-confirmed job skills in Technical Skills, but strictly forbids fabricating
+    project technologies or project experience bullets for confirmed skills without evidence.
     Raises ValueError if validation fails.
     """
     candidate_skills = {
         _normalize(s["name"]): s["name"] for s in original_profile.get("skills", []) if s.get("name")
     }
     candidate_fact_tokens = _collect_candidate_fact_tokens(original_profile, structured_evidence_map)
+    approved_set = {_normalize(s) for s in (approved_additional_skills or []) if s}
+    approved_lower = {s.lower().strip() for s in (approved_additional_skills or []) if s}
 
-    # 1. Validate Skills (No JD-only skills added)
+    # 1. Validate Skills (Verified Candidate Profile skills + Candidate-Confirmed Job Skills)
     for group in optimized_data.skills:
         for sk in group.skills:
             norm_sk = _normalize(sk)
+            # Candidate-confirmed job skills are authorized for Technical Skills
+            if norm_sk in approved_set or sk.lower().strip() in approved_lower:
+                continue
             if norm_sk not in candidate_skills:
                 # Also check if it's explicitly present in candidate fact tokens
                 if norm_sk not in candidate_fact_tokens and sk.lower() not in candidate_fact_tokens:
                     raise ValueError(
-                        f"Factual Validation Failure: Skill '{sk}' is not present in candidate profile or project evidence."
+                        f"Factual Validation Failure: Skill '{sk}' is not present in candidate profile, project evidence, or confirmed job skills."
                     )
 
     # 2. Validate Education Immutability
@@ -159,7 +167,7 @@ def validate_optimized_data(
         if norm_cert_name not in orig_certs:
             raise ValueError(f"Factual Validation Failure: Fabricated certification '{opt_cert.get('name')}'.")
 
-    # 6. Validate Project Technologies
+    # 6. Validate Project Technologies (Strictly Grounded in Profile / Structured Evidence only)
     for opt_proj in optimized_data.projects:
         for tech in opt_proj.technologies:
             norm_tech = _normalize(tech)
@@ -168,10 +176,27 @@ def validate_optimized_data(
                     f"Factual Validation Failure: Project technology '{tech}' in project '{opt_proj.project_name}' was not found in candidate source profile or evidence."
                 )
 
+    # 6b. Validate that confirmed-only skills do not fabricate project bullet claims without evidence
+    confirmed_only = [
+        s.strip() for s in (approved_additional_skills or [])
+        if _normalize(s) not in candidate_fact_tokens and s.lower().strip() not in candidate_fact_tokens
+    ]
+    for opt_proj in optimized_data.projects:
+        for bullet in opt_proj.bullets:
+            for unevidenced_skill in confirmed_only:
+                if len(unevidenced_skill) > 2:
+                    pattern = rf"\b{re.escape(unevidenced_skill)}\b"
+                    if re.search(pattern, bullet, flags=re.IGNORECASE):
+                        raise ValueError(
+                            f"Factual Validation Failure: Confirmed skill '{unevidenced_skill}' cannot be used in project bullet without evidence: '{bullet}'"
+                        )
+
     # 7. Keyword Alignment Validation
     for unsupported in optimized_data.keyword_alignment.unsupported_jd_keywords:
-        # Unsupported JD keywords must NOT be added to optimized skills or project technologies
         norm_unsupported = _normalize(unsupported)
+        # If candidate explicitly confirmed this skill for this job, it's allowed in skills list
+        if norm_unsupported in approved_set or unsupported.lower().strip() in approved_lower:
+            continue
         for group in optimized_data.skills:
             for sk in group.skills:
                 if _normalize(sk) == norm_unsupported:

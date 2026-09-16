@@ -63,7 +63,7 @@ export default function LandingPage() {
         <section className="text-center space-y-8 max-w-4xl mx-auto pt-8">
           <div className="inline-flex items-center">
             <Badge variant="warning" className="px-3.5 py-1 text-xs uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Phase 1 Foundation Live
+              <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Production Resume Platform
             </Badge>
           </div>
 
@@ -195,7 +195,7 @@ export default function LandingPage() {
       <footer className="border-t border-slate-800/80 py-8 px-6 lg:px-12 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <p>© {new Date().getFullYear()} PaperFox. All rights reserved.</p>
-          <p className="font-mono">Phase 1 Foundation • FastAPI + Next.js + MongoDB</p>
+          <p className="font-mono">FastAPI + Next.js + MongoDB</p>
         </div>
       </footer>
     </div>

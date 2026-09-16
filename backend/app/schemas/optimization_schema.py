@@ -103,6 +103,7 @@ class OptimizedResumeData(BaseModel):
     projects: List[OptimizedProject] = Field(default_factory=list)
     skills: List[OptimizedSkillGroup] = Field(default_factory=list)
     certifications: List[Dict[str, Any]] = Field(default_factory=list)
+    section_order: Optional[List[str]] = None
     keyword_alignment: KeywordAlignment
     optimization_metadata: OptimizationMetadata
 

@@ -55,7 +55,7 @@ export default function SignupPage() {
           </Link>
           <h1 className="text-xl font-bold text-white pt-2">Create Account</h1>
           <p className="text-xs text-slate-400">
-            Create your secure candidate account for Phase 1
+            Create your secure candidate account
           </p>
         </div>
 

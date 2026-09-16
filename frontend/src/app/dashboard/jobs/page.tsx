@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Navbar } from "@/components/dashboard/Navbar";
 import { Sidebar } from "@/components/dashboard/Sidebar";
@@ -12,6 +12,7 @@ import {
   analyzeJobApi,
   optimizeJobApi,
   deleteJobApi,
+  updateApprovedSkillsApi,
   JobApplication,
   CreateJobInput,
 } from "@/lib/jobs";
@@ -24,6 +25,8 @@ import {
   Sparkles,
   Trash2,
   CheckCircle2,
+  Check,
+  ShieldCheck,
   AlertCircle,
   ExternalLink,
   MapPin,
@@ -62,6 +65,7 @@ export default function JobsPage() {
   const [optimizationError, setOptimizationError] = useState<{ id: string; msg: string } | null>(null);
   const [activeViewTab, setActiveViewTab] = useState<"status" | "intelligence" | "optimization">("status");
   const [selectedJob, setSelectedJob] = useState<JobApplication | null>(null);
+  const [updatingSkill, setUpdatingSkill] = useState<string | null>(null);
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -157,6 +161,66 @@ export default function JobsPage() {
     }
   };
 
+  const handleToggleApprovedSkill = async (jobId: string, skillName: string) => {
+    if (!selectedJob || updatingSkill) return;
+    const currentApproved = selectedJob.approved_additional_skills || [];
+    const isApproved = currentApproved.some(
+      (s) => s.toLowerCase() === skillName.toLowerCase()
+    );
+    const newApproved = isApproved
+      ? currentApproved.filter((s) => s.toLowerCase() !== skillName.toLowerCase())
+      : [...currentApproved, skillName];
+
+    setUpdatingSkill(skillName);
+    try {
+      const updated = await updateApprovedSkillsApi(jobId, newApproved);
+      setSelectedJob(updated);
+      setJobs((prev) => prev.map((j) => (j.id === updated.id ? updated : j)));
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || "Failed to update confirmed skills.");
+    } finally {
+      setUpdatingSkill(null);
+    }
+  };
+
+  const handleBatchToggleSkills = async (jobId: string, skillsToModify: string[], shouldAdd: boolean) => {
+    if (!selectedJob || updatingSkill) return;
+    const currentApproved = selectedJob.approved_additional_skills || [];
+    let newApproved: string[];
+    if (shouldAdd) {
+      const toAdd = skillsToModify.filter(
+        (s) => !currentApproved.some((c) => c.toLowerCase() === s.toLowerCase())
+      );
+      newApproved = [...currentApproved, ...toAdd];
+    } else {
+      newApproved = currentApproved.filter(
+        (c) => !skillsToModify.some((s) => s.toLowerCase() === c.toLowerCase())
+      );
+    }
+
+    setUpdatingSkill("batch");
+    try {
+      const updated = await updateApprovedSkillsApi(jobId, newApproved);
+      setSelectedJob(updated);
+      setJobs((prev) => prev.map((j) => (j.id === updated.id ? updated : j)));
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || "Failed to update confirmed skills.");
+    } finally {
+      setUpdatingSkill(null);
+    }
+  };
+
+  const groupedMissingSkills = useMemo(() => {
+    if (!selectedJob?.suggested_missing_skills) return {};
+    const groups: Record<string, typeof selectedJob.suggested_missing_skills> = {};
+    for (const item of selectedJob.suggested_missing_skills) {
+      const cat = item.category?.trim() || "Other Relevant Skills";
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(item);
+    }
+    return groups;
+  }, [selectedJob?.suggested_missing_skills]);
+
   const handleDelete = async (jobId: string) => {
     if (!confirm("Are you sure you want to delete this job application?")) return;
     try {
@@ -178,7 +242,7 @@ export default function JobsPage() {
         <div className="flex-1 flex">
           <Sidebar />
 
-          <main className="flex-1 p-6 md:p-8 max-w-7xl">
+          <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
               <div>
@@ -486,7 +550,7 @@ export default function JobsPage() {
                             roleTitle={selectedJob.role_title}
                             data={selectedJob.optimization}
                           />
-                          {/* Phase 6: Job-Specific Resume Generation */}
+                          {/* Job-Specific Resume Generation */}
                           <JobResumePanel
                             job={selectedJob}
                             onRenderComplete={(updatedJob) => {
@@ -549,6 +613,138 @@ export default function JobsPage() {
                             </div>
                           )}
                         </div>
+
+                        {/* Redesigned Missing Skills (JD Skills - Candidate Profile) */}
+                        {selectedJob.suggested_missing_skills && selectedJob.suggested_missing_skills.length > 0 && (
+                          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-900/90 via-slate-950/90 to-indigo-950/20 border border-amber-500/30 shadow-lg space-y-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Sparkles className="w-4 h-4 text-amber-400" />
+                                  <h4 className="text-sm font-bold text-slate-200">
+                                    Skills found in JD but not currently in your profile
+                                  </h4>
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                    JD Intelligence
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-400">
+                                  Select the skills you possess to include them in this job-specific resume. Unselected skills will not be added.
+                                </p>
+                              </div>
+                              <div className="text-[11px] text-slate-400">
+                                Candidate controlled &bull; Profile remains untouched
+                              </div>
+                            </div>
+
+                            {/* Grouped Missing Skills Categories */}
+                            <div className="space-y-3.5 pt-1">
+                              {Object.entries(groupedMissingSkills).map(([category, items]) => {
+                                const categorySkills = items.map((i) => i.skill || i.name || "").filter(Boolean);
+
+                                return (
+                                  <div
+                                    key={category}
+                                    className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-2.5"
+                                  >
+                                    <div className="flex items-center justify-between gap-2 border-b border-slate-800/50 pb-2">
+                                      <span className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider">
+                                        {category} ({items.length})
+                                      </span>
+                                      <div className="flex items-center gap-2 text-[11px]">
+                                        <button
+                                          type="button"
+                                          disabled={updatingSkill !== null}
+                                          onClick={() => handleBatchToggleSkills(selectedJob.id, categorySkills, true)}
+                                          className="text-slate-400 hover:text-amber-300 transition-colors disabled:opacity-50"
+                                        >
+                                          Select All
+                                        </button>
+                                        <span className="text-slate-600">|</span>
+                                        <button
+                                          type="button"
+                                          disabled={updatingSkill !== null}
+                                          onClick={() => handleBatchToggleSkills(selectedJob.id, categorySkills, false)}
+                                          className="text-slate-400 hover:text-rose-400 transition-colors disabled:opacity-50"
+                                        >
+                                          Clear
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1">
+                                      {items.map((item, idx) => {
+                                        const skillName = item.skill || item.name || "";
+                                        const isConfirmed = (selectedJob.approved_additional_skills || []).some(
+                                          (s) => s.toLowerCase() === skillName.toLowerCase()
+                                        );
+                                        const isUpdating = updatingSkill === skillName;
+
+                                        return (
+                                          <label
+                                            key={idx}
+                                            className={`flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer select-none transition-all ${
+                                              isConfirmed
+                                                ? "bg-emerald-950/30 border-emerald-500/40 text-emerald-200"
+                                                : "bg-slate-950/40 border-slate-800 hover:border-slate-700 text-slate-300"
+                                            } ${isUpdating ? "opacity-60 cursor-wait" : ""}`}
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={isConfirmed}
+                                              disabled={updatingSkill !== null}
+                                              onChange={() => handleToggleApprovedSkill(selectedJob.id, skillName)}
+                                              className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500/30 focus:ring-offset-0 cursor-pointer accent-emerald-500"
+                                            />
+                                            <span className="text-xs font-medium truncate" title={skillName}>
+                                              {skillName}
+                                            </span>
+                                            {isUpdating && (
+                                              <RefreshCw className="w-3 h-3 text-amber-400 animate-spin ml-auto shrink-0" />
+                                            )}
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Staged Confirmed Skills Bar */}
+                            {selectedJob.approved_additional_skills && selectedJob.approved_additional_skills.length > 0 && (
+                              <div className="pt-2.5 mt-2 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                  <span className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wide">
+                                    Selected for this Resume ({selectedJob.approved_additional_skills.length}):
+                                  </span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {selectedJob.approved_additional_skills.map((sk, i) => (
+                                      <span
+                                        key={i}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
+                                      >
+                                        {sk}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleToggleApprovedSkill(selectedJob.id, sk)}
+                                          className="hover:text-rose-300 ml-0.5"
+                                          title="Remove from this resume"
+                                        >
+                                          &times;
+                                        </button>
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                                <span className="text-[10px] text-slate-400 shrink-0">
+                                  Will be included in Technical Skills on next resume optimization
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Mandatory Required Skills */}
                         {selectedJob.requirements.required_skills?.length > 0 && (

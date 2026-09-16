@@ -90,6 +90,14 @@ def get_application_history_service(
     return ApplicationHistoryService(job_repo)
 
 
+def get_mailing_service(
+    job_repo: JobRepository = Depends(get_job_repository),
+    profile_repo: ProfileRepository = Depends(get_profile_repository),
+):
+    from app.services.mailing_service import MailingService
+    return MailingService(job_repo, profile_repo)
+
+
 def get_auth_service(
     user_repo: UserRepository = Depends(get_user_repository),
     session_repo: SessionRepository = Depends(get_session_repository),
