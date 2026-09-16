@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { Badge } from "@/components/ui/Badge";
+import { FoxLogo } from "@/components/ui/FoxLogo";
 
 interface NavItem {
   name: string;
@@ -71,7 +72,10 @@ export const Sidebar: React.FC = () => {
 
       <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3.5 space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-300">PaperFox Engine</span>
+          <div className="flex items-center space-x-2">
+            <FoxLogo className="w-4 h-4" size={16} />
+            <span className="text-xs font-semibold text-slate-300">PaperFox Engine</span>
+          </div>
           <Badge variant="success">Online</Badge>
         </div>
         <p className="text-xs text-slate-400 leading-relaxed">

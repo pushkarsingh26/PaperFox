@@ -6,7 +6,8 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
-import { FileText, AlertCircle } from "lucide-react";
+import { FoxLogo } from "@/components/ui/FoxLogo";
+import { AlertCircle } from "lucide-react";
 
 export default function SignupPage() {
   const { signup, loading, error, clearError } = useAuth();
@@ -46,8 +47,8 @@ export default function SignupPage() {
         {/* Brand Header */}
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center space-x-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center shadow-lg shadow-amber-600/20 group-hover:scale-105 transition-transform duration-200">
-              <FileText className="w-5 h-5 text-slate-950 font-bold" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600/20 to-amber-400/20 border border-amber-500/30 flex items-center justify-center shadow-lg shadow-amber-500/10 group-hover:scale-105 transition-transform duration-200 p-1.5">
+              <FoxLogo className="w-7 h-7" size={28} priority />
             </div>
             <span className="font-bold text-2xl text-white tracking-tight">
               Paper<span className="text-amber-500">Fox</span>

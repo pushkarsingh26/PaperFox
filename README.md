@@ -733,4 +733,4 @@ All API endpoints are prefixed with `/api/v1`. Authenticated routes require a st
 
 ## License
 
-Distributed under the [MIT License](https://opensource.org/licenses/MIT). Built with engineering discipline for reliability and factual integrity.
+PaperFox is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.

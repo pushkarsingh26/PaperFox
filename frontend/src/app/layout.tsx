@@ -6,9 +6,32 @@ import { AuthProvider } from "@/context/AuthContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "PaperFox — Job-Specific Resume Optimization Platform",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://paperfox.app"),
+  title: "PaperFox — AI-Powered Job-Specific Resume Optimization",
   description:
-    "Production-ready resume optimization platform connecting candidate profiles with job-specific LaTeX generation.",
+    "Turn every job description into a tailored, evidence-grounded, single-page ATS resume with deterministic LaTeX rendering and factual verification.",
+  icons: {
+    icon: [
+      { url: "/branding/favicon.png", sizes: "128x128", type: "image/png" },
+      { url: "/favicon.ico" },
+    ],
+    apple: "/branding/favicon.png",
+  },
+  openGraph: {
+    title: "PaperFox — AI-Powered Job-Specific Resume Optimization",
+    description: "Turn every job description into a tailored, evidence-grounded, single-page ATS resume.",
+    siteName: "PaperFox",
+    images: [
+      {
+        url: "/assets/paperfox-cover.png",
+        width: 1600,
+        height: 900,
+        alt: "PaperFox — AI-Powered Job-Specific Resume Optimization",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

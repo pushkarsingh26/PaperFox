@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { FoxLogo } from "@/components/ui/FoxLogo";
 import {
   FileText,
   Sparkles,
@@ -25,8 +26,8 @@ export default function LandingPage() {
       {/* Navigation Header */}
       <header className="h-20 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-lg fixed top-0 left-0 right-0 z-50 px-6 lg:px-12 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center shadow-lg shadow-amber-600/20">
-            <FileText className="w-5 h-5 text-slate-950 font-bold" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600/20 to-amber-400/20 border border-amber-500/30 flex items-center justify-center shadow-lg shadow-amber-500/10 p-1.5">
+            <FoxLogo className="w-7 h-7" size={28} priority />
           </div>
           <span className="font-bold text-xl text-white tracking-tight">
             Paper<span className="text-amber-500">Fox</span>
@@ -194,8 +195,11 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-slate-800/80 py-8 px-6 lg:px-12 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© {new Date().getFullYear()} PaperFox. All rights reserved.</p>
-          <p className="font-mono">FastAPI + Next.js + MongoDB</p>
+          <div className="flex items-center space-x-2">
+            <FoxLogo className="w-4 h-4" size={16} />
+            <span>© {new Date().getFullYear()} PaperFox. All rights reserved.</span>
+          </div>
+          <p className="font-mono text-slate-400">AI-Powered Job-Specific Resume Optimization</p>
         </div>
       </footer>
     </div>

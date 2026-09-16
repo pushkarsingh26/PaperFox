@@ -4,7 +4,8 @@ import React from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
-import { FileText, LogOut, User as UserIcon } from "lucide-react";
+import { FoxLogo } from "@/components/ui/FoxLogo";
+import { LogOut, User as UserIcon } from "lucide-react";
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -13,8 +14,8 @@ export const Navbar: React.FC = () => {
     <header className="h-16 bg-slate-900/80 border-b border-slate-800/80 backdrop-blur-md sticky top-0 z-40 px-6 flex items-center justify-between">
       <div className="flex items-center space-x-3">
         <Link href="/dashboard" className="flex items-center space-x-2.5 group">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center shadow-lg shadow-amber-600/20 group-hover:scale-105 transition-transform duration-200">
-            <FileText className="w-5 h-5 text-slate-950 font-bold" />
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-amber-600/20 to-amber-400/20 border border-amber-500/30 flex items-center justify-center shadow-lg shadow-amber-500/10 group-hover:scale-105 transition-transform duration-200 p-1">
+            <FoxLogo className="w-6 h-6" size={24} priority />
           </div>
           <span className="font-bold text-lg text-white tracking-tight">
             Paper<span className="text-amber-500">Fox</span>
