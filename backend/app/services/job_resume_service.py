@@ -304,9 +304,15 @@ class JobResumeService:
     async def get_job_resume_pdf_bytes(
         self, user_id: str, job_id: str
     ) -> Optional[bytes]:
-        """Return the raw PDF bytes for a generated job resume."""
+        """Return the raw PDF bytes for a generated job resume.
+
+        On Cloud Run the container filesystem is ephemeral. If the locally cached
+        PDF file is missing (e.g. after a container restart or scale-out), recompile
+        from the ``latex_source`` that is durably stored in MongoDB.
+        """
         artifact = await self.get_job_resume_artifact(user_id, job_id)
         storage_ref = artifact.get("pdf_storage_reference")
+
         if not storage_ref:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -315,10 +321,34 @@ class JobResumeService:
                     "The artifact status may be 'compiler_unavailable' or 'error'."
                 ),
             )
+
+        # Fast path: cached file still present on this container instance.
         pdf_bytes = self.pdf_storage.get_pdf(storage_ref)
-        if not pdf_bytes:
+        if pdf_bytes:
+            return pdf_bytes
+
+        # Filesystem miss — recompile from the LaTeX source stored in MongoDB.
+        latex_source = artifact.get("latex_source")
+        if not latex_source:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="PDF file not found on server. It may have been deleted.",
+                detail="PDF file not found on server and no LaTeX source available to recompile.",
             )
-        return pdf_bytes
+
+        recompiled_bytes, _, status_msg = await self.compiler_worker.compile_with_status(
+            latex_source
+        )
+        if not recompiled_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"PDF recompilation failed: {status_msg}",
+            )
+
+        # Write back to local cache for subsequent warm requests (best-effort).
+        try:
+            self.pdf_storage.save_pdf(user_id, f"job_{job_id}", recompiled_bytes)
+        except Exception:
+            pass  # Non-critical — the bytes are still returned
+
+        return recompiled_bytes
+

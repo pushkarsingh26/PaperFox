@@ -1,0 +1,139 @@
+# ==============================================================================
+# PaperFox — Render Blueprint
+#
+# This file describes the PaperFox backend service to Render's infrastructure.
+# Deploy via: Render Dashboard → New → Blueprint (point to this repo).
+#
+# Runtime: Docker  (Render builds from BACKENd/Dockerfile)
+# Region : oregon  (change to frankfurt or singapore if preferred)
+#
+# SECRET variables are listed with sync: false — Render will prompt you to
+# enter the real values in the dashboard; they are never stored in this file.
+# ==============================================================================
+
+services:
+  - type: web
+    name: paperfox-backend
+    runtime: docker
+    # Build context is the BACKENd/ subdirectory where the Dockerfile lives.
+    rootDir: BACKENd
+    dockerfilePath: Dockerfile   # relative to rootDir
+    region: oregon               # options: oregon, frankfurt, singapore, ohio
+
+    # Render injects PORT automatically; the Dockerfile CMD reads ${PORT:-8000}.
+    # Do NOT set PORT here — Render manages it.
+
+    # Health check — Render uses this to decide when the service is ready and
+    # to restart unhealthy instances.
+    healthCheckPath: /health
+
+    # ---------------------------------------------------------------------------
+    # Environment Variables
+    #
+    # Non-secret production defaults are set directly here.
+    # Secret values use sync: false so they are never committed to source control.
+    # ---------------------------------------------------------------------------
+    envVars:
+      # ── Core Application ─────────────────────────────────────────────────────
+      - key: PROJECT_NAME
+        value: PaperFox
+
+      - key: API_V1_STR
+        value: /api/v1
+
+      - key: ENVIRONMENT
+        value: production
+
+      # ── Auth / JWT ────────────────────────────────────────────────────────────
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 30
+
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: 7
+
+      - key: SECURE_COOKIES
+        value: true
+
+      # ── Rate Limiting ─────────────────────────────────────────────────────────
+      - key: RATE_LIMITING_ENABLED
+        value: true
+
+      - key: RATE_LIMIT_AUTH_PER_MINUTE
+        value: 10
+
+      - key: RATE_LIMIT_AI_PER_MINUTE
+        value: 30
+
+      # ── LaTeX / PDF Engine ────────────────────────────────────────────────────
+      # pdflatex is installed via TeX Live in the Dockerfile; PATH resolution works.
+      - key: LATEX_COMPILER
+        value: pdflatex
+
+      - key: LATEX_COMPILER_PATH
+        value: ""
+
+      # ── AI Provider Models ────────────────────────────────────────────────────
+      - key: GOOGLE_MODEL
+        value: gemini-2.5-flash
+
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b
+
+      - key: OPENROUTER_MODEL
+        value: nvidia/nemotron-3.5-lightning:free
+
+      - key: OPENROUTER_FALLBACK_MODEL
+        value: liquid/lfm-2.5-2.6b:free
+
+      - key: NVIDIA_MODEL
+        value: meta/llama-3.1-70b-instruct
+
+      # ── AI Execution & Routing ────────────────────────────────────────────────
+      - key: AI_TIMEOUT_SECONDS
+        value: 30
+
+      - key: AI_MAX_RETRIES
+        value: 2
+
+      - key: JD_ANALYSIS_PRIMARY_PROVIDER
+        value: gemini
+
+      - key: JD_ANALYSIS_FALLBACK_PROVIDERS
+        value: '["groq","openrouter"]'
+
+      # ── Database ──────────────────────────────────────────────────────────────
+      - key: DATABASE_NAME
+        value: paperfox
+
+      # ── SECRETS — enter values in the Render dashboard, never here ────────────
+
+      # MongoDB Atlas connection string
+      # Format: mongodb+srv://<user>:<pass>@cluster.mongodb.net/?retryWrites=true&w=majority
+      - key: MONGODB_URL
+        sync: false
+
+      # JWT signing keys — generate with: python -c "import secrets; print(secrets.token_hex(32))"
+      - key: SECRET_KEY
+        sync: false
+
+      - key: REFRESH_SECRET_KEY
+        sync: false
+
+      # CORS — comma-separated or JSON array of allowed frontend origins.
+      # Example after deploying frontend: https://paperfox-frontend.vercel.app
+      # Do NOT include localhost here in production.
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+      # AI Provider API Keys
+      - key: GOOGLE_API_KEY
+        sync: false
+
+      - key: GROQ_API_KEY
+        sync: false
+
+      - key: OPENROUTER_API_KEY
+        sync: false
+
+      - key: NVIDIA_API_KEY
+        sync: false

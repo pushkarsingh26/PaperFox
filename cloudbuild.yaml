@@ -1,0 +1,101 @@
+# ==============================================================================
+# PaperFox Backend — Cloud Build Pipeline
+#
+# Builds, pushes, and deploys the FastAPI + LaTeX backend to Cloud Run
+# in asia-south1 (Mumbai).
+#
+# Usage (from project root):
+#   gcloud builds submit . \
+#     --config cloudbuild.yaml \
+#     --substitutions _PROJECT_ID=$(gcloud config get-value project)
+#
+# Prerequisites:
+#   1. Artifact Registry repository created:
+#        gcloud artifacts repositories create paperfox \
+#          --repository-format=docker \
+#          --location=asia-south1
+#
+#   2. All secrets created in Secret Manager (see README-DEPLOY.md).
+#
+#   3. Cloud Run service account must have roles/secretmanager.secretAccessor.
+#
+# ==============================================================================
+
+substitutions:
+  _PROJECT_ID: "your-gcp-project-id"
+  _REGION: "asia-south1"
+  _SERVICE: "paperfox-backend"
+  _IMAGE: "asia-south1-docker.pkg.dev/${_PROJECT_ID}/paperfox/backend"
+
+steps:
+  # ── Step 1: Build Docker image ──────────────────────────────────────────────
+  - name: "gcr.io/cloud-builders/docker"
+    id: build
+    args:
+      - build
+      - --tag
+      - "${_IMAGE}:${SHORT_SHA}"
+      - --tag
+      - "${_IMAGE}:latest"
+      - --file
+      - "Dockerfile"
+      - "."
+    dir: "BACKENd"
+
+  # ── Step 2: Push image to Artifact Registry ─────────────────────────────────
+  - name: "gcr.io/cloud-builders/docker"
+    id: push
+    args:
+      - push
+      - "--all-tags"
+      - "${_IMAGE}"
+    waitFor:
+      - build
+
+  # ── Step 3: Deploy to Cloud Run ─────────────────────────────────────────────
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: deploy
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - "${_SERVICE}"
+      - --image
+      - "${_IMAGE}:${SHORT_SHA}"
+      - --region
+      - "${_REGION}"
+      - --platform
+      - managed
+      - --allow-unauthenticated
+      - --port
+      - "8000"
+      - --memory
+      - "1Gi"
+      - --cpu
+      - "1"
+      - --timeout
+      - "120"
+      - --concurrency
+      - "80"
+      - --min-instances
+      - "0"
+      - --max-instances
+      - "2"
+      # ── Non-secret environment variables ──────────────────────────────────
+      - --set-env-vars
+      - |
+        ENVIRONMENT=production,PROJECT_NAME=PaperFox,API_V1_STR=/api/v1,ACCESS_TOKEN_EXPIRE_MINUTES=30,REFRESH_TOKEN_EXPIRE_DAYS=7,SECURE_COOKIES=false,DATABASE_NAME=paperfox,LATEX_COMPILER=pdflatex,LATEX_COMPILER_PATH=,RATE_LIMITING_ENABLED=true,RATE_LIMIT_AUTH_PER_MINUTE=10,RATE_LIMIT_AI_PER_MINUTE=30,GOOGLE_MODEL=gemini-2.5-flash,GROQ_MODEL=openai/gpt-oss-20b,OPENROUTER_MODEL=nvidia/nemotron-3.5-lightning:free,OPENROUTER_FALLBACK_MODEL=liquid/lfm-2.5-2.6b:free,NVIDIA_MODEL=meta/llama-3.1-70b-instruct,AI_TIMEOUT_SECONDS=30,AI_MAX_RETRIES=2,JD_ANALYSIS_PRIMARY_PROVIDER=gemini,JD_ANALYSIS_FALLBACK_PROVIDERS=["groq","openrouter"]
+      # ── Secrets from Secret Manager ────────────────────────────────────────
+      # Format: ENV_VAR_NAME=secret-resource-name:version
+      - --set-secrets
+      - |
+        MONGODB_URL=paperfox-mongodb-url:latest,SECRET_KEY=paperfox-secret-key:latest,REFRESH_SECRET_KEY=paperfox-refresh-secret-key:latest,GOOGLE_API_KEY=paperfox-google-api-key:latest,GROQ_API_KEY=paperfox-groq-api-key:latest,OPENROUTER_API_KEY=paperfox-openrouter-api-key:latest,NVIDIA_API_KEY=paperfox-nvidia-api-key:latest,ALLOWED_ORIGINS=paperfox-allowed-origins:latest
+    waitFor:
+      - push
+
+images:
+  - "${_IMAGE}:${SHORT_SHA}"
+  - "${_IMAGE}:latest"
+
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -125,6 +125,32 @@ class ResumeService:
 
     async def get_base_pdf_bytes(self, user_id: str) -> Optional[bytes]:
         artifact = await self.get_base_artifact(user_id)
-        if not artifact or not artifact.get("pdf_storage_reference"):
+        if not artifact:
             return None
-        return self.pdf_storage.get_pdf(artifact["pdf_storage_reference"])
+
+        # Try reading from local filesystem first (fast path for warm containers).
+        storage_ref = artifact.get("pdf_storage_reference")
+        if storage_ref:
+            cached = self.pdf_storage.get_pdf(storage_ref)
+            if cached:
+                return cached
+
+        # Filesystem miss (ephemeral Cloud Run container or first request after restart).
+        # Recompile from the LaTeX source that is durably stored in MongoDB.
+        latex_source = artifact.get("latex_source")
+        if not latex_source:
+            return None
+
+        pdf_bytes, _, status_msg = await self.compiler_worker.compile_with_status(latex_source)
+        if not pdf_bytes:
+            return None
+
+        # Optionally persist back to the container's local cache for subsequent warm requests.
+        if storage_ref:
+            try:
+                self.pdf_storage.save_pdf(user_id, "base", pdf_bytes)
+            except Exception:
+                pass  # Non-critical — the bytes are still returned
+
+        return pdf_bytes
+
