@@ -1,11 +1,10 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Body, Depends, Query, Response, status
 from app.api.deps import (
     get_current_user,
     get_job_service,
     get_job_resume_service,
     get_application_history_service,
-    get_mailing_service,
 )
 from app.schemas.auth import MessageResponse
 from app.schemas.job import (
@@ -17,14 +16,10 @@ from app.schemas.job import (
     JobHistoryStats,
     JobNotesUpdate,
     JobStatusUpdate,
-    MailingDraft,
-    MailingDraftUpdate,
-    MailingGenerateRequest,
 )
 from app.services.job_service import JobService
 from app.services.job_resume_service import JobResumeService
 from app.services.application_history_service import ApplicationHistoryService
-from app.services.mailing_service import MailingService
 from app.schemas.optimization_schema import OptimizationResponse
 
 router = APIRouter(prefix="/jobs", tags=["Job Applications"])
@@ -237,43 +232,6 @@ async def download_job_resume_pdf(
             "Content-Length": str(len(pdf_bytes)),
         },
     )
-
-
-# ── Mailing System: Cold Outreach Drafts ─────────────────────────────────────
-
-@router.post("/{job_id}/mailing/generate", response_model=MailingDraft)
-async def generate_mailing_draft(
-    job_id: str,
-    req: Optional[MailingGenerateRequest] = None,
-    current_user: dict = Depends(get_current_user),
-    mailing_service: MailingService = Depends(get_mailing_service),
-):
-    """Generate a personalized, evidence-grounded cold outreach email for the hiring team."""
-    user_id = current_user["id"]
-    return await mailing_service.generate_mailing_draft(user_id, job_id, req)
-
-
-@router.get("/{job_id}/mailing", response_model=Optional[MailingDraft])
-async def get_mailing_draft(
-    job_id: str,
-    current_user: dict = Depends(get_current_user),
-    mailing_service: MailingService = Depends(get_mailing_service),
-):
-    """Retrieve the saved mailing draft for this job application if one exists."""
-    user_id = current_user["id"]
-    return await mailing_service.get_mailing_draft(user_id, job_id)
-
-
-@router.put("/{job_id}/mailing", response_model=MailingDraft)
-async def update_mailing_draft(
-    job_id: str,
-    update_data: MailingDraftUpdate,
-    current_user: dict = Depends(get_current_user),
-    mailing_service: MailingService = Depends(get_mailing_service),
-):
-    """Update editable fields (recipient, subject, body, status) on the mailing draft."""
-    user_id = current_user["id"]
-    return await mailing_service.update_mailing_draft(user_id, job_id, update_data)
 
 
 @router.delete("/{job_id}", response_model=MessageResponse)

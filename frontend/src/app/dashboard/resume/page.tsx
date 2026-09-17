@@ -213,20 +213,11 @@ export default function BaseResumePage() {
                   <Settings className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <p className="text-sm font-semibold text-slate-300">
-                      Server PDF Compilation Unavailable
+                      LaTeX Source Generated (PDF Compiler Standby)
                     </p>
-                    <p className="text-xs text-slate-500 leading-relaxed">
-                      The backend server does not have a LaTeX compiler available. Your resume
-                      LaTeX source has been generated and saved successfully. PDF compilation will
-                      work once the backend is deployed with TeX Live included (see{" "}
-                      <code className="bg-slate-800 px-1 rounded text-slate-300">backend/Dockerfile</code>
-                      ).
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Your resume LaTeX source has been structured and saved. PDF binaries will compile automatically when the server rendering engine is connected, or you can export the clean LaTeX source directly to Overleaf.
                     </p>
-                    {compilerStatus?.description && (
-                      <p className="text-[11px] text-slate-600 font-mono mt-1 leading-relaxed">
-                        {compilerStatus.description}
-                      </p>
-                    )}
                   </div>
                 </div>
               </Card>
@@ -318,7 +309,7 @@ export default function BaseResumePage() {
                 {/* Compiler status indicator */}
                 <Card className="p-6 space-y-3 border-slate-800 bg-slate-900/40 text-xs">
                   <h4 className="font-semibold text-slate-200 flex items-center gap-1.5">
-                    <Code2 className="w-4 h-4 text-amber-500" /> Server TeX Status
+                    <Code2 className="w-4 h-4 text-amber-500" /> LaTeX Typesetting Engine
                   </h4>
                   {compilerStatus ? (
                     <div className="space-y-1.5">
@@ -327,19 +318,19 @@ export default function BaseResumePage() {
                           className={`w-2 h-2 rounded-full flex-shrink-0 ${
                             compilerStatus.compiler_available
                               ? "bg-emerald-400"
-                              : "bg-slate-600"
+                              : "bg-amber-400"
                           }`}
                         />
                         <span
                           className={
                             compilerStatus.compiler_available
                               ? "text-emerald-400 font-semibold"
-                              : "text-slate-500 font-semibold"
+                              : "text-amber-400 font-semibold"
                           }
                         >
                           {compilerStatus.compiler_available
-                            ? "Compiler Available"
-                            : "Compiler Not Configured on Server"}
+                            ? "Compiler Online"
+                            : "Standby (LaTeX Source Ready)"}
                         </span>
                       </div>
                       {compilerStatus.compiler_available && compilerStatus.compiler_binary && (

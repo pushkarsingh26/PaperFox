@@ -140,29 +140,40 @@ export const ProfileFormShell: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Header & Progress Indicator */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/60 border border-slate-800 p-6 rounded-xl">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Master Candidate Profile
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Single source of truth for job-specific resume optimization.
-          </p>
+      <div className="bg-slate-900/70 border border-slate-800/80 p-6 rounded-2xl space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white tracking-tight">
+              Master Candidate Profile
+            </h1>
+            <p className="text-xs text-slate-400 mt-1">
+              Single source of truth for job-specific resume optimization.
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-4">
+            <div className="text-right">
+              <span className="text-xs text-slate-400 block font-medium">Completion Score</span>
+              <span className="text-lg font-bold font-mono text-amber-400">
+                {profile.completion_percentage}%
+              </span>
+            </div>
+            <Badge
+              variant={profile.profile_status === "complete" ? "success" : "warning"}
+              dot
+              className="px-3.5 py-1 text-xs"
+            >
+              {profile.profile_status === "complete" ? "Complete" : "Draft"}
+            </Badge>
+          </div>
         </div>
 
-        <div className="flex items-center space-x-4">
-          <div className="text-right">
-            <span className="text-xs text-slate-400 block">Completion Score</span>
-            <span className="text-lg font-bold font-mono text-amber-400">
-              {profile.completion_percentage}%
-            </span>
-          </div>
-          <Badge
-            variant={profile.profile_status === "complete" ? "success" : "warning"}
-            className="px-3 py-1 text-xs"
-          >
-            {profile.profile_status === "complete" ? "Complete" : "Draft"}
-          </Badge>
+        {/* Visual Progress Bar */}
+        <div className="w-full bg-slate-950/80 h-2 rounded-full overflow-hidden border border-slate-800/60">
+          <div
+            className="bg-gradient-to-r from-amber-500 to-amber-400 h-full rounded-full transition-all duration-500 shadow-sm shadow-amber-500/50"
+            style={{ width: `${Math.min(100, Math.max(0, profile.completion_percentage))}%` }}
+          />
         </div>
       </div>
 

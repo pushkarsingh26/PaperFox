@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorCollection
 from app.repositories.base import BaseRepository
 
@@ -8,6 +9,20 @@ from app.repositories.base import BaseRepository
 class JobRepository(BaseRepository):
     def __init__(self, collection: AsyncIOMotorCollection):
         super().__init__(collection)
+
+    def _id_query(self, job_id: str, user_id: Optional[str] = None) -> Dict[str, Any]:
+        """Constructs an ID query supporting both UUID string and ObjectId representations."""
+        id_cond: Dict[str, Any]
+        if ObjectId.is_valid(job_id):
+            id_cond = {"$or": [{"_id": job_id}, {"_id": ObjectId(job_id)}]}
+        else:
+            id_cond = {"_id": job_id}
+
+        if user_id is not None:
+            if "$or" in id_cond:
+                return {"$and": [{"$or": id_cond["$or"]}, {"user_id": user_id}]}
+            return {"_id": job_id, "user_id": user_id}
+        return id_cond
 
     async def create_job(self, user_id: str, job_data: Dict[str, Any]) -> Dict[str, Any]:
         now = datetime.now(timezone.utc)
@@ -35,7 +50,11 @@ class JobRepository(BaseRepository):
         return doc
 
     async def get_by_id(self, job_id: str, user_id: str) -> Optional[Dict[str, Any]]:
-        return await self.collection.find_one({"_id": job_id, "user_id": user_id})
+        return await self.collection.find_one(self._id_query(job_id, user_id))
+
+    async def get_by_id_unscoped(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a job by ID without filtering by user_id to verify ownership/authorization."""
+        return await self.collection.find_one(self._id_query(job_id))
 
     async def list_by_user_id(self, user_id: str) -> List[Dict[str, Any]]:
         cursor = self.collection.find({"user_id": user_id}).sort("created_at", -1)
@@ -44,7 +63,7 @@ class JobRepository(BaseRepository):
     async def update_job(self, job_id: str, user_id: str, update_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         update_data["updated_at"] = datetime.now(timezone.utc)
         result = await self.collection.update_one(
-            {"_id": job_id, "user_id": user_id},
+            self._id_query(job_id, user_id),
             {"$set": update_data}
         )
         if result.matched_count > 0:
@@ -52,7 +71,7 @@ class JobRepository(BaseRepository):
         return None
 
     async def delete_job(self, job_id: str, user_id: str) -> bool:
-        result = await self.collection.delete_one({"_id": job_id, "user_id": user_id})
+        result = await self.collection.delete_one(self._id_query(job_id, user_id))
         return result.deleted_count > 0
 
     async def upsert_job_resume_artifact(
@@ -68,7 +87,7 @@ class JobRepository(BaseRepository):
             "updated_at": datetime.now(timezone.utc),
         }
         result = await self.collection.update_one(
-            {"_id": job_id, "user_id": user_id},
+            self._id_query(job_id, user_id),
             {"$set": update_data},
         )
         if result.matched_count > 0:
@@ -90,7 +109,7 @@ class JobRepository(BaseRepository):
         """Update the application_status for a job. Strict user_id ownership check."""
         now = datetime.now(timezone.utc)
         result = await self.collection.update_one(
-            {"_id": job_id, "user_id": user_id},
+            self._id_query(job_id, user_id),
             {"$set": {"application_status": new_status, "status_updated_at": now, "updated_at": now}},
         )
         if result.matched_count > 0:
@@ -103,7 +122,7 @@ class JobRepository(BaseRepository):
         """Update the free-text notes for a job application."""
         now = datetime.now(timezone.utc)
         result = await self.collection.update_one(
-            {"_id": job_id, "user_id": user_id},
+            self._id_query(job_id, user_id),
             {"$set": {"notes": notes or None, "updated_at": now}},
         )
         if result.matched_count > 0:

@@ -19,24 +19,25 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseStyles =
-    "inline-flex items-center justify-center font-medium transition-all duration-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center font-medium transition-all duration-150 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:opacity-50 disabled:cursor-not-allowed select-none active:scale-[0.98]";
 
   const variants = {
     primary:
-      "bg-amber-600 hover:bg-amber-500 text-white shadow-sm hover:shadow-amber-500/20 active:bg-amber-700",
+      "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-semibold shadow-md shadow-amber-500/20 hover:shadow-amber-500/30 border border-amber-400/30 active:from-amber-600 active:to-amber-700",
     secondary:
-      "bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 hover:border-slate-600",
+      "bg-slate-800/90 hover:bg-slate-700/90 text-slate-100 border border-slate-700/80 hover:border-slate-600 shadow-sm",
     outline:
-      "bg-transparent hover:bg-slate-800 text-slate-200 border border-slate-700 hover:border-slate-600",
+      "bg-transparent hover:bg-slate-800/60 text-slate-200 border border-slate-700/80 hover:border-slate-600 hover:text-white",
     danger:
-      "bg-red-600 hover:bg-red-500 text-white focus:ring-red-500 shadow-sm",
-    ghost: "bg-transparent hover:bg-slate-800/60 text-slate-300 hover:text-white",
+      "bg-red-600/90 hover:bg-red-500 text-white focus:ring-red-500/40 shadow-sm shadow-red-500/20 border border-red-500/30",
+    ghost:
+      "bg-transparent hover:bg-slate-800/50 text-slate-300 hover:text-white",
   };
 
   const sizes = {
-    sm: "px-3 py-1.5 text-xs rounded-md",
-    md: "px-4 py-2.5 text-sm",
-    lg: "px-6 py-3 text-base font-semibold",
+    sm: "px-3 py-1.5 text-xs rounded-lg gap-1.5",
+    md: "px-4 py-2 text-sm rounded-xl gap-2",
+    lg: "px-6 py-2.5 text-base font-semibold rounded-xl gap-2.5",
   };
 
   return (
@@ -45,7 +46,7 @@ export const Button: React.FC<ButtonProps> = ({
       disabled={disabled || isLoading}
       {...props}
     >
-      {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+      {isLoading && <Loader2 className="w-4 h-4 mr-1.5 animate-spin shrink-0" />}
       {children}
     </button>
   );

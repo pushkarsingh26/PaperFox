@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import { FoxLogo } from "@/components/ui/FoxLogo";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
   const { login, loading, error, clearError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,8 +38,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 selection:bg-amber-500/30 selection:text-amber-200">
-      <div className="w-full max-w-md space-y-6">
+    <div className="min-h-screen bg-[#090d16] flex flex-col items-center justify-center p-4 selection:bg-amber-500/30 selection:text-amber-200 relative overflow-hidden">
+      {/* Ambient background glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-md space-y-6 relative z-10">
         {/* Brand Header */}
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center space-x-2.5 group">
@@ -49,16 +53,16 @@ export default function LoginPage() {
               Paper<span className="text-amber-500">Fox</span>
             </span>
           </Link>
-          <h1 className="text-xl font-bold text-white pt-2">Welcome Back</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight pt-2">Welcome Back</h1>
           <p className="text-xs text-slate-400">
-            Enter your credentials to access your candidate session
+            Sign in to access your resumes, target jobs, and cold outreach.
           </p>
         </div>
 
         {/* Login Card */}
-        <Card className="p-8 space-y-6">
+        <Card className="p-8 space-y-6 border-slate-800/80 bg-slate-900/70 shadow-2xl">
           {(error || validationError) && (
-            <div className="p-3.5 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start space-x-2.5 text-xs text-red-400">
+            <div className="p-3.5 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start space-x-2.5 text-xs text-red-400">
               <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
               <span>{validationError || error}</span>
             </div>
@@ -72,27 +76,42 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
+              leftIcon={<Mail className="w-4 h-4" />}
               required
             />
 
-            <Input
-              label="Password"
-              type="password"
-              placeholder="••••••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-              required
-            />
+            <div className="space-y-1">
+              <Input
+                label="Password"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                leftIcon={<Lock className="w-4 h-4" />}
+                rightIcon={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-slate-400 hover:text-slate-200 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                }
+                required
+              />
+            </div>
 
             <Button
               type="submit"
               variant="primary"
               size="lg"
-              className="w-full text-sm font-semibold"
+              className="w-full text-sm font-semibold mt-2"
               isLoading={loading}
             >
-              Sign In
+              Sign In to Account
+              <ArrowRight className="w-4 h-4 ml-1.5" />
             </Button>
           </form>
         </Card>
@@ -103,7 +122,7 @@ export default function LoginPage() {
             href="/signup"
             className="text-amber-400 hover:text-amber-300 font-semibold underline underline-offset-4"
           >
-            Sign up now
+            Create free account
           </Link>
         </p>
       </div>

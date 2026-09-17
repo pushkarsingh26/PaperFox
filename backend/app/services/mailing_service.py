@@ -1,40 +1,37 @@
-import copy
 import json
 import logging
 import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-
 from fastapi import HTTPException, status
 
-from pydantic import BaseModel, Field
 from app.repositories.job_repository import JobRepository
 from app.repositories.profile_repository import ProfileRepository
-from app.schemas.job import MailingDraft, MailingDraftUpdate, MailingGenerateRequest
+from app.schemas.mailing_schema import (
+    MailingAIResponse,
+    MailingDraftResponse,
+    MailingDraftUpdate,
+    MailingGenerateRequest,
+    MailingInput,
+)
 from app.services.ai.provider_router import ProviderRouter
+from app.services.mailing_data_builder import MailingDataBuilder
 
 logger = logging.getLogger(__name__)
 
-
-class MailingAIResponse(BaseModel):
-    subject_options: List[str] = Field(default_factory=list, description="List of 3-4 specific, concise, professional subject lines")
-    chosen_subject: str = Field(..., description="The single strongest subject line")
-    body: str = Field(..., description="The complete outreach email body")
-    short_body: Optional[str] = Field(None, description="Concise 2-3 paragraph alternative/follow-up version")
-    selected_evidence: List[str] = Field(default_factory=list, description="List of 1-3 short strings noting cited evidence")
-
-BANNED_EMAIL_PHRASES = [
+BANNED_PHRASES = [
     r"\bi hope this email finds you well\b",
-    r"\bi am thrilled to apply\b",
-    r"\bi am writing to express my enthusiasm\b",
+    r"\bi am thrilled to\b",
+    r"\bi am excited to\b",
     r"\bi would be an excellent fit\b",
-    r"\bi am confident that i am\b",
+    r"\bi believe my unique skill set\b",
     r"\blook no further\b",
     r"\bcutting-edge\b",
-    r"\bseamless(?:ly)?\b",
-    r"\bAI-powered\b",
-    r"\brobust\b",
+    r"\bpassionate about innovation\b",
+    r"\bresults-driven\b",
+    r"\bseamlessly\b",
     r"\bspearheaded\b",
+    r"\brobust\b",
 ]
 
 
@@ -49,132 +46,240 @@ class MailingService:
         self.profile_repository = profile_repository
         self.router = router or ProviderRouter()
 
-    async def generate_mailing_draft(
-        self,
-        user_id: str,
-        job_id: str,
-        req: Optional[MailingGenerateRequest] = None,
-    ) -> MailingDraft:
+    async def _get_and_authorize_job(self, job_id: str, user_id: str) -> Dict[str, Any]:
         """
-        Generates a personalized, humanized hiring-team cold outreach email
-        grounded strictly in the candidate's verified profile facts and existing JD Intelligence.
+        Validates job existence and user authorization.
+        Returns job_doc if user owns it.
+        Raises 403 Forbidden if the job exists but belongs to another user.
+        Raises 404 Not Found if the job does not exist anywhere.
         """
         job_doc = await self.job_repository.get_by_id(job_id, user_id)
-        if not job_doc:
+        if job_doc:
+            return job_doc
+
+        unscoped_job = await self.job_repository.get_by_id_unscoped(job_id)
+        if unscoped_job and str(unscoped_job.get("user_id")) != str(user_id):
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Job application not found",
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have access to this job.",
             )
 
-        if not job_doc.get("is_analyzed") or not job_doc.get("requirements"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Job application must be analyzed with JD Intelligence before generating outreach emails.",
-            )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job application not found.",
+        )
 
+    def _sanitize_text(self, text: str) -> str:
+        """Removes banned robotic/boilerplate expressions and markdown bolding."""
+        cleaned = text
+        for pat in BANNED_PHRASES:
+            cleaned = re.sub(pat, "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\*{2,}([^*]+)\*{2,}", r"\1", cleaned)
+        cleaned = re.sub(r"[ \t]+", " ", cleaned)
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+        return cleaned.strip()
+
+    def _generate_fallback_draft(
+        self,
+        input_data: MailingInput,
+    ) -> Dict[str, Any]:
+        """Deterministic, professional fallback draft when AI provider is unavailable."""
+        company = input_data.job.company
+        role = input_data.job.role
+        candidate_name = input_data.candidate.name
+        recipient_name = input_data.recipient.name
+
+        greeting = f"Hi {recipient_name}," if recipient_name else f"Hello {company} Hiring Team,"
+
+        project_mention = ""
+        cited_evidence = []
+        if input_data.relevant_projects:
+            top_proj = input_data.relevant_projects[0]
+            project_mention = (
+                f"In my recent work on {top_proj.name}, I focused on "
+                f"{', '.join(top_proj.technologies[:3]) if top_proj.technologies else 'core backend components'} "
+                f"which directly aligns with the technical goals of this position."
+            )
+            cited_evidence.append(top_proj.name)
+
+        body = (
+            f"{greeting}\n\n"
+            f"I came across the {role} opening at {company} and wanted to reach out directly.\n\n"
+            f"{project_mention}\n\n"
+            f"I would welcome the opportunity to connect and share more context on how my background aligns with the team's roadmap. "
+            f"Please let me know if you are open to a brief conversation.\n\n"
+            f"Best,\n{candidate_name}"
+        )
+
+        short_body = (
+            f"{greeting}\n\n"
+            f"Reaching out regarding the {role} opening at {company}. "
+            f"{project_mention} "
+            f"Happy to share my resume or hop on a brief chat if convenient.\n\n"
+            f"Best,\n{candidate_name}"
+        )
+
+        return {
+            "subject": f"{role} — {candidate_name}",
+            "subject_options": [
+                f"{role} — {candidate_name}",
+                f"Re: {role} opening at {company}",
+                f"{company} {role} Role — {candidate_name}",
+            ],
+            "body": body,
+            "short_body": short_body,
+            "selected_evidence": cited_evidence,
+        }
+
+    async def generate_draft(
+        self,
+        user_id: str,
+        req: MailingGenerateRequest,
+    ) -> MailingDraftResponse:
+        """
+        Independent mailing draft generation consuming structured JD Intelligence
+        and Optimized Resume snapshot via normalized MailingInput JSON.
+        """
+        # Step 1: Authorize and retrieve Job
+        job_doc = await self._get_and_authorize_job(req.job_id, user_id)
+
+        # Step 2: Retrieve Candidate Profile facts
         profile_doc = await self.profile_repository.get_by_user_id(user_id)
-        if not profile_doc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Candidate profile not found. Please complete your master profile first.",
-            )
 
-        company_name = job_doc.get("company_name", "").strip() or "Company"
-        role_title = job_doc.get("role_title", "").strip() or "Role"
-        requirements = job_doc.get("requirements", {})
-        job_description = job_doc.get("job_description", "")
+        # Step 3: Build normalized MailingInput JSON payload
+        mailing_input = MailingDataBuilder.build_input(
+            job_doc=job_doc,
+            profile_doc=profile_doc,
+            recipient_name=req.recipient_name,
+            recipient_email=req.recipient_email,
+            recipient_role=req.recipient_role,
+        )
 
-        personal_details = profile_doc.get("personal_details", {})
-        candidate_name = personal_details.get("full_name", "").strip() or "Candidate"
+        input_json_str = json.dumps(mailing_input.model_dump(), indent=2)
 
-        # Collect candidate facts
-        verified_skills = [
-            s.get("name", "").strip()
-            for s in profile_doc.get("skills", [])
-            if s.get("name")
-        ]
-        confirmed_job_skills = job_doc.get("approved_additional_skills", [])
-
-        # Collect verified projects with evidence
-        projects_summary = []
-        for p in profile_doc.get("projects", []):
-            p_name = p.get("name", "")
-            p_techs = ", ".join(p.get("technologies", []))
-            p_desc = p.get("description", "")
-            p_evidence = p.get("evidence", {})
-
-            metrics = []
-            if isinstance(p_evidence, dict):
-                for m in p_evidence.get("measurable_outcomes", []):
-                    metrics.append(str(m))
-
-            metric_str = f" [Metrics: {'; '.join(metrics)}]" if metrics else ""
-            projects_summary.append(
-                f"- Project: {p_name} | Technologies: {p_techs} | Description: {p_desc}{metric_str}"
-            )
-
-        projects_context = "\n".join(projects_summary) if projects_summary else "No verified projects on file."
-
-        recipient_name = req.recipient_name.strip() if (req and req.recipient_name) else ""
-        recipient_email = req.recipient_email.strip() if (req and req.recipient_email) else ""
-        recipient_role = req.recipient_role.strip() if (req and req.recipient_role) else ""
-
-        # Construct prompt
+        # Step 4: Construct Humanized Prompt
         system_prompt = (
-            "You are an elite technical career advisor and executive copywriter.\n"
-            "Generate a concise, highly personalized cold outreach email from a job candidate to a hiring/recruiting team.\n\n"
-            "CRITICAL WRITING RULES:\n"
-            "1. AUTHENTIC HUMAN CONVERSATIONAL TONE:\n"
-            "   - Write in genuine, confident, conversational professional English.\n"
-            "   - Use short, digestible paragraphs (2-3 sentences max per paragraph).\n"
-            "   - Varied sentence structures; sound like a real engineer reaching out peer-to-peer.\n"
-            "   - Absolutely NO generic AI boilerplate or flattery.\n"
-            "   - STRICTLY BANNED PHRASES:\n"
-            "     * 'I hope this email finds you well'\n"
-            "     * 'I am thrilled to apply' / 'I am excited to submit'\n"
-            "     * 'I am writing to express my enthusiasm'\n"
-            "     * 'I would be an excellent fit' / 'I am the ideal candidate'\n"
-            "     * 'Look no further'\n"
-            "     * 'cutting-edge', 'seamless', 'spearheaded', 'robust', 'AI-powered', 'dynamic'\n"
-            "2. FACTUAL GROUNDING (STRICT):\n"
-            "   - Mention ONLY verified technologies and project details from the candidate facts below.\n"
-            "   - NEVER fabricate experience, companies, client relationships, or metrics.\n"
-            "   - If confirmed job skills have no project evidence, they may only be mentioned as familiar tools, never as fabricated project work.\n"
-            "3. RELEVANCE & CONNECTION:\n"
-            "   - Select ONLY the 1-2 strongest pieces of candidate project/skill evidence that directly solve the role's primary technical needs.\n"
-            "   - Clearly connect the candidate's verified work to what the team is building.\n"
-            "4. EMAIL STRUCTURE:\n"
-            "   - Greeting: If recipient name is provided, use 'Hi [Name],' or 'Hello [Name],'. Otherwise use 'Hello [Company] Hiring Team,'. NEVER fabricate names.\n"
-            "   - Opening: Direct statement of outreach regarding the specific role.\n"
-            "   - Body: 1-2 concise paragraphs highlighting verified project evidence and connecting it directly to role requirements.\n"
-            "   - Closing: Low-pressure, professional call-to-action (e.g. sharing resume or chatting briefly).\n"
-            "   - Sign-off: 'Best,' followed by Candidate Name.\n"
-            "5. OUTPUT REQUIREMENTS:\n"
-            "   - Return structured JSON with:\n"
-            "     * 'subject_options': List of 3-4 specific, concise, professional subject lines (e.g. 'Software Engineer role — [Name]', 'Re: [Role] at [Company] — [Key Tech]'). NO emojis, NO clickbait, NO 'URGENT'.\n"
-            "     * 'chosen_subject': The single strongest subject line.\n"
-            "     * 'body': The complete outreach email body.\n"
-            "     * 'short_body': A concise 2-3 paragraph alternative/follow-up version.\n"
-            "     * 'selected_evidence': List of 1-3 short strings noting which verified project/skill evidence was cited."
+            "PAPERFOX MAILING SYSTEM — HUMAN EMAIL GENERATION\n\n"
+            "Generate a professional, natural, personalized email for contacting an HR, recruiter, "
+            "hiring manager, or careers team regarding the selected job.\n\n"
+            "The email must sound like it was genuinely written by the candidate, not generated from "
+            "a template or by matching JD keywords.\n\n"
+            "WRITING STYLE:\n"
+            "- Natural and conversational while remaining professional.\n"
+            "- Concise: ideally 100–150 words.\n"
+            "- Confident but not arrogant.\n"
+            "- Direct and purposeful.\n"
+            "- Warm but not overly friendly.\n"
+            "- Use simple, natural English.\n"
+            "- Every sentence should have a reason to exist.\n"
+            "- Personalize the email using the actual company, role, and strongest relevant candidate evidence.\n"
+            "- Prefer specific evidence over generic claims.\n\n"
+            "STRUCTURE:\n"
+            "1. Greeting\n"
+            "   - Use the recipient's name when provided.\n"
+            "   - If no recipient name is available, use a natural greeting such as 'Hi Hiring Team,' "
+            "or 'Hello [Company] Team,'.\n"
+            "   - Never invent a recipient name.\n\n"
+            "2. Opening\n"
+            "   - Clearly state the role the candidate is contacting them about.\n"
+            "   - Avoid generic openings such as:\n"
+            "     'I came across...'\n"
+            "     'I am writing to express my interest...'\n"
+            "     'I hope this email finds you well.'\n\n"
+            "3. Relevant candidate evidence\n"
+            "   - Mention 1 strong, relevant project, experience, or achievement.\n"
+            "   - Explain briefly what the candidate actually built or worked on.\n"
+            "   - Mention only the technologies that are genuinely relevant.\n"
+            "   - Do not dump a list of keywords.\n"
+            "   - Prefer concrete work such as building an AI platform, developing APIs, implementing "
+            "semantic retrieval, working with LLM workflows, or other verified evidence from the candidate data.\n\n"
+            "4. Natural connection\n"
+            "   - Explain why that experience is relevant to the role.\n"
+            "   - Make the connection specific and natural.\n"
+            "   - Do not use phrases such as:\n"
+            "     'directly aligns with the technical goals of this position'\n"
+            "     'aligns with the team's roadmap'\n"
+            "     'matches the requirements of the role'\n"
+            "   unless there is genuinely specific information supporting such wording.\n\n"
+            "5. Closing\n"
+            "   - Express genuine interest in discussing the opportunity.\n"
+            "   - Ask for a reasonable next step, such as a brief conversation or consideration for the role.\n"
+            "   - Keep the closing short.\n"
+            "   - Do not sound desperate or overly formal.\n\n"
+            "6. Signature\n"
+            "   - Candidate's actual name only.\n\n"
+            "CONTENT RULES:\n"
+            "- Use the JD Intelligence to understand what matters in the role.\n"
+            "- Use the Optimized Resume and verified candidate evidence to determine what the candidate "
+            "can genuinely discuss.\n"
+            "- Never invent experience, skills, projects, achievements, metrics, responsibilities, "
+            "company information, recruiter information, or technology usage.\n"
+            "- A JD skill alone does NOT mean the candidate possesses that skill.\n"
+            "- Only mention candidate skills that exist in the candidate's verified data.\n"
+            "- Do not claim that a candidate used a technology in a project unless the project evidence "
+            "supports it.\n"
+            "- Do not mention every skill from the resume.\n"
+            "- Select the strongest 1–2 relevant pieces of evidence.\n"
+            "- Do not copy sentences from the JD.\n"
+            "- Do not repeat the job description.\n"
+            "- Do not turn the email into a resume summary.\n"
+            "- Do not mention ATS, keyword matching, optimization, JD Intelligence, AI, or PaperFox's "
+            "internal process.\n\n"
+            "AVOID AI-GENERATED PHRASES:\n"
+            "Do not use generic phrases such as:\n"
+            "- 'I came across...'\n"
+            "- 'I wanted to reach out directly.'\n"
+            "- 'I am writing to express my interest...'\n"
+            "- 'I believe my skills make me a strong fit...'\n"
+            "- 'My background aligns perfectly...'\n"
+            "- 'directly aligns with the technical goals...'\n"
+            "- 'aligns with the team's roadmap.'\n"
+            "- 'I would welcome the opportunity to connect...'\n"
+            "- 'share more context on how my background aligns...'\n"
+            "- 'I am excited about the opportunity to leverage my skills...'\n"
+            "- 'I am confident that...'\n"
+            "- 'I look forward to hearing from you.'\n\n"
+            "Do not mechanically replace these phrases with another equally generic phrase. "
+            "The writing should remain natural rather than following a rigid template.\n\n"
+            "TECHNOLOGY MENTION RULE:\n"
+            "Bad: 'I have experience with Python, FastAPI, LangChain, FAISS, PostgreSQL, React, Docker, and LLMs.'\n"
+            "Better: 'On DevMind, I built an AI software engineering platform with FastAPI and LangChain "
+            "for repository analysis and semantic code retrieval.'\n"
+            "Mention technologies naturally as part of describing actual work.\n\n"
+            "EMAIL LENGTH:\n"
+            "Keep the email concise enough for a recruiter to read quickly.\n"
+            "Target:\n"
+            "- 3–5 short paragraphs\n"
+            "- Approximately 100–150 words\n"
+            "- No unnecessary explanation\n"
+            "- No long technical descriptions\n\n"
+            "SUBJECT:\n"
+            "Generate a short professional subject that clearly communicates the role.\n"
+            "Examples of the style:\n"
+            "  'Application — Junior AI Engineer'\n"
+            "  'Junior AI Engineer — Pushkar Chhokar'\n"
+            "  'Interest in Junior AI Engineer Role'\n"
+            "Do not generate clickbait or overly enthusiastic subjects.\n\n"
+            "OUTPUT:\n"
+            "Return only the structured email result as valid JSON:\n"
+            "{ \"subject\": \"...\", \"body\": \"...\" }\n\n"
+            "The body should be ready to send with normal paragraph spacing.\n\n"
+            "The final email must prioritize:\n"
+            "AUTHENTICITY → SPECIFICITY → RELEVANCE → BREVITY → PROFESSIONALISM\n\n"
+            "The candidate should sound like a real person contacting a real recruiting team, "
+            "not an AI system generating a keyword-optimized message."
         )
 
         user_content = (
-            f"TARGET ROLE & COMPANY:\n"
-            f"Company: {company_name}\n"
-            f"Role Title: {role_title}\n"
-            f"Key Required Skills: {', '.join(requirements.get('required_skills', []))}\n"
-            f"AI/ML Requirements: {', '.join(requirements.get('ai_ml_requirements', []))}\n"
-            f"Key Responsibilities: {', '.join(requirements.get('responsibilities', []))}\n\n"
-            f"RECIPIENT CONTEXT:\n"
-            f"Recipient Name: {recipient_name or 'Not specified (use company hiring team greeting)'}\n"
-            f"Recipient Role: {recipient_role or 'Hiring Team'}\n\n"
-            f"CANDIDATE FACTS (DO NOT EXCEED OR FABRICATE):\n"
-            f"Candidate Name: {candidate_name}\n"
-            f"Verified Skills: {', '.join(verified_skills)}\n"
-            f"Job-Confirmed Skills: {', '.join(confirmed_job_skills)}\n"
-            f"Verified Projects & Evidence:\n{projects_context}\n"
+            f"Here is the structured candidate and job data for generating the outreach email:\n\n"
+            f"```json\n{input_json_str}\n```\n\n"
+            f"Using only the verified candidate evidence in this data, write a genuine, concise, "
+            f"personalized email for the role at the specified company. "
+            f"Return the result as JSON with 'subject' and 'body' fields."
         )
 
+        # Step 5: Call AI Provider Layer
+        data: Dict[str, Any] = {}
         try:
             schema = MailingAIResponse.model_json_schema()
             ai_res = await self.router.generate_structured_json(
@@ -182,193 +287,129 @@ class MailingService:
                 schema=schema,
                 system_prompt=system_prompt,
             )
-            data = ai_res.get("data", {})
+            raw_data = ai_res.get("data", {})
+            if isinstance(raw_data, dict) and raw_data.get("subject") and raw_data.get("body"):
+                data = raw_data
+            else:
+                logger.warning("AI response missing required subject or body fields. Using fallback.")
+                data = self._generate_fallback_draft(mailing_input)
         except Exception as e:
-            logger.error(f"AI generation for mailing draft failed: {e}", exc_info=True)
-            # Fallback deterministic draft
-            data = self._generate_fallback_draft(
-                company_name=company_name,
-                role_title=role_title,
-                candidate_name=candidate_name,
-                recipient_name=recipient_name,
-                verified_skills=verified_skills,
-                projects_summary=projects_summary,
-            )
+            logger.error(f"AI generation failed: {e}. Utilizing fallback draft.", exc_info=True)
+            data = self._generate_fallback_draft(mailing_input)
 
-        # Sanitize outputs
-        subject_options = data.get("subject_options", [])
+        # Step 6: Sanitize and validate
+        subject = self._sanitize_text(data.get("subject") or f"{mailing_input.job.role} — {mailing_input.candidate.name}")
+        body = self._sanitize_text(data.get("body") or "")
+        short_body = self._sanitize_text(data.get("short_body") or "") if data.get("short_body") else None
+        subject_options = [
+            self._sanitize_text(s) for s in data.get("subject_options", []) if s
+        ]
         if not subject_options:
-            subject_options = [
-                f"{role_title} Application — {candidate_name}",
-                f"{company_name} {role_title} Role — {candidate_name}",
-                f"Re: {role_title} Opportunity at {company_name}",
-            ]
+            subject_options = [subject]
 
-        chosen_subject = data.get("chosen_subject") or subject_options[0]
-        chosen_subject = self._sanitize_text(chosen_subject)
-
-        body = self._sanitize_email_body(data.get("body", ""), candidate_name)
-        short_body = self._sanitize_email_body(data.get("short_body", ""), candidate_name)
         selected_evidence = data.get("selected_evidence", [])
 
         now = datetime.now(timezone.utc)
-        draft = MailingDraft(
-            job_id=job_id,
-            recipient_name=recipient_name or None,
-            recipient_email=recipient_email or None,
-            recipient_role=recipient_role or None,
-            subject=chosen_subject,
+        draft_dict = {
+            "job_id": req.job_id,
+            "recipient_name": req.recipient_name or None,
+            "recipient_email": req.recipient_email or None,
+            "recipient_role": req.recipient_role or None,
+            "subject": subject,
+            "subject_options": subject_options,
+            "body": body,
+            "short_body": short_body,
+            "selected_evidence": selected_evidence,
+            "status": "ready",
+            "generated_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+        }
+
+        # Step 7: Persist draft onto job document
+        await self.job_repository.update_job(
+            req.job_id,
+            user_id,
+            {"mailing_draft": draft_dict},
+        )
+
+        return MailingDraftResponse(
+            job_id=req.job_id,
+            recipient_name=req.recipient_name,
+            recipient_email=req.recipient_email,
+            recipient_role=req.recipient_role,
+            subject=subject,
             subject_options=subject_options,
             body=body,
             short_body=short_body,
             selected_evidence=selected_evidence,
-            status="draft",
+            status="ready",
             generated_at=now,
             updated_at=now,
         )
 
-        # Persist draft to job application in MongoDB
-        await self.job_repository.update_job(
-            job_id,
-            user_id,
-            {"mailing_draft": draft.model_dump()},
+    async def get_draft(self, user_id: str, job_id: str) -> Optional[MailingDraftResponse]:
+        """Retrieves existing mailing draft for the specified job."""
+        job_doc = await self._get_and_authorize_job(job_id, user_id)
+        draft_data = job_doc.get("mailing_draft")
+        if not draft_data:
+            return None
+
+        return MailingDraftResponse(
+            job_id=job_id,
+            recipient_name=draft_data.get("recipient_name"),
+            recipient_email=draft_data.get("recipient_email"),
+            recipient_role=draft_data.get("recipient_role"),
+            subject=draft_data.get("subject", ""),
+            subject_options=draft_data.get("subject_options", []),
+            body=draft_data.get("body", ""),
+            short_body=draft_data.get("short_body"),
+            selected_evidence=draft_data.get("selected_evidence", []),
+            status=draft_data.get("status", "ready"),
+            generated_at=draft_data.get("generated_at"),
+            updated_at=draft_data.get("updated_at"),
         )
 
-        return draft
-
-    async def get_mailing_draft(
+    async def update_draft(
         self,
         user_id: str,
         job_id: str,
-    ) -> Optional[MailingDraft]:
-        """Retrieve existing mailing draft for a job application."""
-        job_doc = await self.job_repository.get_by_id(job_id, user_id)
-        if not job_doc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Job application not found",
-            )
-
-        draft_doc = job_doc.get("mailing_draft")
-        if not draft_doc:
-            return None
-
-        try:
-            return MailingDraft(**draft_doc) if isinstance(draft_doc, dict) else draft_doc
-        except Exception:
-            return None
-
-    async def update_mailing_draft(
-        self,
-        user_id: str,
-        job_id: str,
-        update_data: MailingDraftUpdate,
-    ) -> MailingDraft:
-        """Update and persist candidate edits to an existing mailing draft."""
-        job_doc = await self.job_repository.get_by_id(job_id, user_id)
-        if not job_doc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Job application not found",
-            )
-
+        update_in: MailingDraftUpdate,
+    ) -> MailingDraftResponse:
+        """Saves user edits to the outreach draft."""
+        job_doc = await self._get_and_authorize_job(job_id, user_id)
         existing_draft = job_doc.get("mailing_draft") or {}
+
         now = datetime.now(timezone.utc)
-
-        updated_dict = copy.deepcopy(existing_draft)
-        updated_dict["job_id"] = job_id
-        updated_dict["updated_at"] = now
-
-        if update_data.recipient_name is not None:
-            updated_dict["recipient_name"] = update_data.recipient_name.strip() or None
-        if update_data.recipient_email is not None:
-            updated_dict["recipient_email"] = update_data.recipient_email.strip() or None
-        if update_data.recipient_role is not None:
-            updated_dict["recipient_role"] = update_data.recipient_role.strip() or None
-        if update_data.subject is not None:
-            updated_dict["subject"] = update_data.subject.strip()
-        if update_data.body is not None:
-            updated_dict["body"] = update_data.body.strip()
-        if update_data.short_body is not None:
-            updated_dict["short_body"] = update_data.short_body.strip()
-        if update_data.status is not None:
-            updated_dict["status"] = update_data.status.strip()
-
-        draft = MailingDraft(**updated_dict)
+        updated_draft = {
+            **existing_draft,
+            "job_id": job_id,
+            "recipient_name": update_in.recipient_name if update_in.recipient_name is not None else existing_draft.get("recipient_name"),
+            "recipient_email": update_in.recipient_email if update_in.recipient_email is not None else existing_draft.get("recipient_email"),
+            "recipient_role": update_in.recipient_role if update_in.recipient_role is not None else existing_draft.get("recipient_role"),
+            "subject": update_in.subject if update_in.subject is not None else existing_draft.get("subject", ""),
+            "body": update_in.body if update_in.body is not None else existing_draft.get("body", ""),
+            "short_body": update_in.short_body if update_in.short_body is not None else existing_draft.get("short_body"),
+            "status": update_in.status or existing_draft.get("status", "ready"),
+            "updated_at": now.isoformat(),
+        }
 
         await self.job_repository.update_job(
             job_id,
             user_id,
-            {"mailing_draft": draft.model_dump()},
+            {"mailing_draft": updated_draft},
         )
 
-        return draft
-
-    def _sanitize_email_body(self, text: str, candidate_name: str) -> str:
-        """Strips markdown bolding, removes banned phrases, cleans whitespace."""
-        if not text:
-            return ""
-
-        # Remove markdown bolding
-        clean = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
-        clean = re.sub(r"\*([^*]+)\*", r"\1", clean)
-
-        # Remove banned phrases
-        for pattern in BANNED_EMAIL_PHRASES:
-            clean = re.sub(pattern, "", clean, flags=re.IGNORECASE)
-
-        # Normalize clean double spaces
-        clean = re.sub(r"[ \t]+", " ", clean)
-        clean = re.sub(r"\n{3,}", "\n\n", clean)
-
-        clean = clean.strip()
-        return clean
-
-    def _sanitize_text(self, text: str) -> str:
-        if not text:
-            return ""
-        clean = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
-        clean = re.sub(r"[ \t]+", " ", clean)
-        return clean.strip()
-
-    def _generate_fallback_draft(
-        self,
-        company_name: str,
-        role_title: str,
-        candidate_name: str,
-        recipient_name: str,
-        verified_skills: List[str],
-        projects_summary: List[str],
-    ) -> Dict[str, Any]:
-        greeting = f"Hi {recipient_name}," if recipient_name else f"Hello {company_name} Hiring Team,"
-        top_skills = ", ".join(verified_skills[:4]) if verified_skills else "software engineering"
-
-        body = (
-            f"{greeting}\n\n"
-            f"I'm reaching out regarding the {role_title} opportunity at {company_name}. "
-            f"My recent background focuses on {top_skills}, building production systems with clear engineering outcomes.\n\n"
-            f"I've verified experience with technical projects that align closely with {company_name}'s requirements, "
-            f"and I'd welcome the chance to discuss how my background could support your team's goals.\n\n"
-            f"I'd be glad to share my resume and relevant project details if helpful.\n\n"
-            f"Best,\n{candidate_name}"
+        return MailingDraftResponse(
+            job_id=job_id,
+            recipient_name=updated_draft.get("recipient_name"),
+            recipient_email=updated_draft.get("recipient_email"),
+            recipient_role=updated_draft.get("recipient_role"),
+            subject=updated_draft.get("subject", ""),
+            subject_options=updated_draft.get("subject_options", []),
+            body=updated_draft.get("body", ""),
+            short_body=updated_draft.get("short_body"),
+            selected_evidence=updated_draft.get("selected_evidence", []),
+            status=updated_draft.get("status", "ready"),
+            generated_at=updated_draft.get("generated_at"),
+            updated_at=now,
         )
-
-        short_body = (
-            f"{greeting}\n\n"
-            f"I'm reaching out regarding the {role_title} opening at {company_name}. "
-            f"With experience across {top_skills}, my background aligns well with what your team is building.\n\n"
-            f"I'd welcome the chance to connect briefly and share my resume.\n\n"
-            f"Best,\n{candidate_name}"
-        )
-
-        return {
-            "subject_options": [
-                f"{role_title} Role — {candidate_name}",
-                f"{company_name} {role_title} Application — {candidate_name}",
-                f"Re: {role_title} Opportunity / {candidate_name}",
-            ],
-            "chosen_subject": f"{role_title} Role — {candidate_name}",
-            "body": body,
-            "short_body": short_body,
-            "selected_evidence": [f"Technical background in {top_skills}"],
-        }

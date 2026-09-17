@@ -6,6 +6,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Navbar } from "@/components/dashboard/Navbar";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import {
   ApplicationStatus,
   JobHistoryItem,
@@ -35,6 +36,7 @@ import {
   CheckCircle2,
   Sparkles,
   Layers,
+  Mail,
 } from "lucide-react";
 
 const STATUS_CONFIG: Record<
@@ -353,24 +355,17 @@ export default function ApplicationsHistoryPage() {
                 <p className="text-sm text-slate-400">Loading application history...</p>
               </div>
             ) : filteredItems.length === 0 ? (
-              <div className="p-16 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 text-center space-y-4">
-                <Briefcase className="w-12 h-12 text-slate-600 mx-auto" />
-                <div>
-                  <h3 className="text-base font-semibold text-slate-200">
-                    No Applications Found
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                    {searchQuery || statusFilter
-                      ? "No applications matched your filter criteria."
-                      : "Create your first job application in the Job Workspace to start tracking."}
-                  </p>
-                </div>
-                <Link href="/dashboard/jobs">
-                  <Button variant="primary" size="sm" className="bg-amber-500 text-slate-950 font-semibold">
-                    Open Job Workspace
-                  </Button>
-                </Link>
-              </div>
+              <EmptyState
+                icon={Briefcase}
+                title="No Applications Found"
+                description={
+                  searchQuery || statusFilter
+                    ? "No applications matched your filter criteria."
+                    : "Create your first job application in the Job Workspace to start tracking."
+                }
+                actionLabel="Open Job Workspace"
+                actionHref="/dashboard/jobs"
+              />
             ) : (
               <div className="space-y-4">
                 {filteredItems.map((item) => {
@@ -418,7 +413,7 @@ export default function ApplicationsHistoryPage() {
                         </div>
 
                         {/* Status selector & Action buttons */}
-                        <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-2.5">
                           {/* Quick Status Select */}
                           <div className="flex items-center gap-1.5">
                             <select
@@ -430,7 +425,7 @@ export default function ApplicationsHistoryPage() {
                                   e.target.value as ApplicationStatus
                                 )
                               }
-                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border bg-slate-950 focus:outline-none focus:ring-1 focus:ring-amber-500/50 cursor-pointer ${cfg.badgeClass}`}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border bg-slate-950 focus:outline-none focus:ring-1 focus:ring-amber-500/50 cursor-pointer ${cfg.badgeClass}`}
                             >
                               {(Object.keys(STATUS_CONFIG) as ApplicationStatus[]).map((s) => (
                                 <option key={s} value={s} className="bg-slate-900 text-slate-200">
@@ -449,17 +444,28 @@ export default function ApplicationsHistoryPage() {
                               href={getJobResumePdfUrl(item.id)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20 transition-all"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20 transition-all"
                             >
-                              <Download className="w-3.5 h-3.5" /> Download PDF
+                              <Download className="w-3.5 h-3.5" /> PDF
                             </a>
                           )}
+
+                          {/* Cold Outreach Link */}
+                          <Link href={`/dashboard/mailing?job_id=${item.id}`}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                            >
+                              <Mail className="w-3.5 h-3.5 text-amber-400" /> Outreach
+                            </Button>
+                          </Link>
 
                           <Link href="/dashboard/jobs">
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-xs border-slate-700 text-slate-300 hover:bg-slate-800"
+                              className="text-xs border-slate-700/80 text-slate-300 hover:bg-slate-800"
                             >
                               Workspace <ChevronRight className="w-3.5 h-3.5 ml-1" />
                             </Button>

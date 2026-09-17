@@ -327,7 +327,7 @@ export const ProjectsStep: React.FC<ProjectsStepProps> = ({
                           />
                         </div>
 
-                        {/* Phase 7: Evidence Extraction Button & Panel */}
+                        {/* Structured Evidence Extraction Panel */}
                         {item.ai_analysis_text && item.ai_analysis_text.trim().length > 0 && (
                           <div className="space-y-4 pt-3 border-t border-indigo-500/20">
                             <div className="flex flex-wrap items-center justify-between gap-3">
